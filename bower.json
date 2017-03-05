@@ -1,0 +1,25 @@
+{
+  "name": "purescript-hyper-routing-server",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/owickstrom/purescript-hyper-routing-server.git"
+  },
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-prelude": "^2.5.0",
+    "purescript-console": "^2.0.0",
+    "purescript-hyper": "^0.4.2",
+    "purescript-hyper-routing": "^0.4.2"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^2.0.0",
+    "purescript-spec": "^0.12.4",
+    "purescript-spec-discovery": "^0.4.0"
+  }
+}
