@@ -33,6 +33,11 @@ friends (UserID uid) =
        , User (UserID "bar")
        ]
 
+-- TODO: add ReqBody when supported
+saveFriend :: forall m. Monad m => UserID -> m User
+saveFriend (UserID uid) =
+  pure (User (UserID "new-user"))
+
 wiki :: forall m. Monad m => Array String -> m WikiPage
 wiki segments = pure (WikiPage (joinWith "/" segments))
 
@@ -56,11 +61,13 @@ about = do
 spec :: forall e. Spec e Unit
 spec =
   describe "Hyper.Routing.Router" do
-    let userHandlers userId = profile userId :<|> friends userId
-        handlers = home
-                   :<|> userHandlers
-                   :<|> wiki
-                   :<|> about
+    let userHandlers userId =
+          profile userId :<|> (friends userId :<|> saveFriend userId)
+        handlers =
+          home
+          :<|> userHandlers
+          :<|> wiki
+          :<|> about
 
         onRoutingError status msg = do
           writeStatus status
@@ -105,6 +112,10 @@ spec =
       it "supports arrays of JSON values" do
         conn <- makeRequest GET "/users/owi/friends"
         testStringBody conn `shouldEqual` "[{\"userId\":\"foo\"},{\"userId\":\"bar\"}]"
+
+      it "supports second method of resource with different representation" do
+        conn <- makeRequest POST "/users/owi/friends"
+        testStringBody conn `shouldEqual` "{\"userId\":\"new-user\"}"
 
       it "matches CaptureAll route" do
         conn <- makeRequest GET "/wiki/foo/bar/baz.txt"

@@ -2,12 +2,15 @@ module Hyper.Routing.Router
        ( RoutingError(..)
        , class Router
        , route
+       , class MethodRouter
+       , routeMethod
        , router
        ) where
 
 import Prelude
 import Data.HTTP.Method as Method
 import Data.StrMap as StrMap
+import Hyper.Routing as Routing
 import Control.IxMonad (ibind)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
@@ -29,7 +32,7 @@ import Hyper.ContentNegotiation (AcceptHeader, NegotiationResult(..), negotiateC
 import Hyper.Middleware (Middleware, lift')
 import Hyper.Middleware.Class (getConn)
 import Hyper.Response (class Response, class ResponseWriter, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
-import Hyper.Routing (type (:<|>), type (:>), Capture, CaptureAll, Handler, Lit, Raw, (:<|>))
+import Hyper.Routing (type (:<|>), type (:>), Capture, CaptureAll, Lit, Raw, (:<|>))
 import Hyper.Routing.ContentType (class AllMimeRender, allMimeRender)
 import Hyper.Routing.PathPiece (class FromPathPiece, fromPathPiece)
 import Hyper.Status (Status, statusBadRequest, statusMethodNotAllowed, statusNotAcceptable, statusNotFound, statusOK)
@@ -56,6 +59,11 @@ instance showRoutingError :: Show RoutingError where
 
 class Router e h r | e -> h, e -> r where
   route :: Proxy e -> RoutingContext -> h -> Either RoutingError r
+
+class MethodRouter m cts h r | m -> cts
+                             , m -> h
+                             , m -> r where
+  routeMethod :: Proxy m -> RoutingContext -> h -> Either RoutingError r
 
 instance routerAltE :: (Router e1 h1 out, Router e2 h2 out)
                        => Router (e1 :<|> e2) (h1 :<|> h2) out where
@@ -152,28 +160,29 @@ getAccept m =
     Just a -> Just <$> parseAcceptHeader a
     Nothing -> pure Nothing
 
-instance routerHandler :: ( Monad m
-                          , ResponseWriter rw m wb
-                          , Response wb m r
-                          , IsSymbol method
-                          , AllMimeRender body ct r
-                          )
-                       => Router
-                          (Handler method ct body)
-                          (ExceptT RoutingError m body)
-                          (Middleware
-                           m
-                           { request :: { method :: Either Method CustomMethod, url :: String, headers :: StrMap String | req }
-                           , response :: { writer :: rw StatusLineOpen | res }
-                           , components :: c
-                           }
-                           { request :: { method :: Either Method CustomMethod, url :: String, headers :: StrMap String | req }
-                           , response :: { writer :: rw ResponseEnded | res }
-                           , components :: c
-                           }
-                           Unit)
+instance methodRouterMethod :: ( Monad m
+                               , ResponseWriter rw m wb
+                               , Response wb m r
+                               , IsSymbol method
+                               , AllMimeRender body ct r
+                               )
+                           => MethodRouter
+                              (Routing.Method method body)
+                              ct
+                              (ExceptT RoutingError m body)
+                              (Middleware
+                               m
+                               { request :: { method :: Either Method CustomMethod, url :: String, headers :: StrMap String | req }
+                               , response :: { writer :: rw StatusLineOpen | res }
+                               , components :: c
+                               }
+                               { request :: { method :: Either Method CustomMethod, url :: String, headers :: StrMap String | req }
+                               , response :: { writer :: rw ResponseEnded | res }
+                               , components :: c
+                               }
+                               Unit)
   where
-  route proxy context action = do
+  routeMethod proxy context action = do
     let handler = lift' (runExceptT action) `ibind`
                   case _ of
                     Left (HTTPError { status }) -> do
@@ -237,6 +246,25 @@ instance routerRaw :: (IsSymbol method)
                       where
   route proxy context r =
     routeEndpoint proxy context r (SProxy :: SProxy method)
+
+
+instance routerResourceMethods :: ( MethodRouter m1 cts h1 out
+                                  , MethodRouter m2 cts h2 out
+                                  )
+                               => Router (Routing.Resource (m1 :<|> m2) cts) (h1 :<|> h2) out where
+  route proxy ctx (h1 :<|> h2) =
+    case routeMethod (Proxy :: Proxy m1) ctx h1 of
+      Left _ -> routeMethod (Proxy :: Proxy m2) ctx h2
+      Right r -> pure r
+
+
+
+instance routerResource :: ( IsSymbol m
+                           , MethodRouter (Routing.Method m r) cts h out
+                           )
+                        => Router (Routing.Resource (Routing.Method m r) cts) h out where
+  route proxy =
+    routeMethod (Proxy :: Proxy (Routing.Method m r))
 
 
 router

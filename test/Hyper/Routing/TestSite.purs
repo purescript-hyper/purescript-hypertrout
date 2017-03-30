@@ -4,10 +4,10 @@ import Prelude
 import Data.Argonaut (class EncodeJson, jsonEmptyObject, (:=), (~>))
 import Data.Either (Either(..))
 import Data.String (trim)
-import Hyper.Routing (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw)
+import Hyper.Routing (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource)
 import Hyper.Routing.ContentType.HTML (HTML, class EncodeHTML)
 import Hyper.Routing.ContentType.JSON (JSON)
-import Hyper.Routing.Method (Get)
+import Hyper.Routing.Method (Get, Post)
 import Hyper.Routing.PathPiece (class FromPathPiece, class ToPathPiece)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
@@ -44,13 +44,17 @@ data WikiPage = WikiPage String
 instance encodeHTMLWikiPage :: EncodeHTML WikiPage where
   encodeHTML (WikiPage title) = text ("Viewing page: " <> title)
 
+
+type UserResources =
+  "profile" :/ Resource (Get User) JSON
+  :<|> "friends" :/ Resource (Get (Array User) :<|> Post User) JSON
+
 type TestSite =
-  Get (HTML :<|> JSON) Home
+  Resource (Get Home) (HTML :<|> JSON)
   -- nested routes with capture
-  :<|> "users" :/ Capture "user-id" UserID :> ("profile" :/ Get JSON User
-                                               :<|> "friends" :/ Get JSON (Array User))
+  :<|> "users" :/ Capture "user-id" UserID :> UserResources
   -- capture all
-  :<|> "wiki" :/ CaptureAll "segments" String :> Get HTML WikiPage
+  :<|> "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage) HTML
   -- raw middleware
   :<|> "about" :/ Raw "GET"
 
