@@ -30,8 +30,8 @@ import Data.Tuple (Tuple(..))
 import Hyper.Conn (Conn)
 import Hyper.ContentNegotiation (AcceptHeader, NegotiationResult(..), negotiateContent, parseAcceptHeader)
 import Hyper.Middleware (Middleware, lift')
-import Hyper.Middleware.Class (getConn)
-import Hyper.Response (class Response, class ResponseWriter, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
+import Hyper.Request (class Request, getRequestData)
+import Hyper.Response (class ResponseWritable, class Response, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
 import Hyper.Routing (type (:<|>), type (:>), Capture, CaptureAll, Lit, Raw, (:<|>))
 import Hyper.Routing.ContentType (class AllMimeRender, allMimeRender)
 import Hyper.Routing.PathPiece (class FromPathPiece, fromPathPiece)
@@ -161,8 +161,9 @@ getAccept m =
     Nothing -> pure Nothing
 
 instance methodRouterMethod :: ( Monad m
-                               , ResponseWriter rw m wb
-                               , Response wb m r
+                               , Request req m
+                               , Response res m wb
+                               , ResponseWritable wb m r
                                , IsSymbol method
                                , AllMimeRender body ct r
                                )
@@ -172,12 +173,12 @@ instance methodRouterMethod :: ( Monad m
                               (ExceptT RoutingError m body)
                               (Middleware
                                m
-                               { request :: { method :: Either Method CustomMethod, url :: String, headers :: StrMap String | req }
-                               , response :: { writer :: rw StatusLineOpen | res }
+                               { request :: req
+                               , response :: (res StatusLineOpen)
                                , components :: c
                                }
-                               { request :: { method :: Either Method CustomMethod, url :: String, headers :: StrMap String | req }
-                               , response :: { writer :: rw ResponseEnded | res }
+                               { request :: req
+                               , response :: (res ResponseEnded)
                                , components :: c
                                }
                                Unit)
@@ -191,8 +192,8 @@ instance methodRouterMethod :: ( Monad m
                       closeHeaders
                       end
                     Right body -> do
-                      conn ← getConn
-                      case getAccept conn.request.headers of
+                      { headers } ← getRequestData
+                      case getAccept headers of
                         Left err -> do
                           writeStatus statusBadRequest
                           contentType textPlain
@@ -223,23 +224,23 @@ instance routerRaw :: (IsSymbol method)
                       (Raw method)
                       (Middleware
                        m
-                       { request :: { method :: Either Method CustomMethod, url :: String | req }
-                       , response :: { writer :: rw StatusLineOpen | res }
+                       { request :: req
+                       , response :: (res StatusLineOpen)
                        , components :: c
                        }
-                       { request :: { method :: Either Method CustomMethod, url :: String | req }
-                       , response :: { writer :: rw ResponseEnded | res }
+                       { request :: req
+                       , response :: (res ResponseEnded)
                        , components :: c
                        }
                        Unit)
                       (Middleware
                        m
-                       { request :: { method :: Either Method CustomMethod, url :: String | req }
-                       , response :: { writer :: rw StatusLineOpen | res }
+                       { request :: req
+                       , response :: (res StatusLineOpen)
                        , components :: c
                        }
-                       { request :: { method :: Either Method CustomMethod, url :: String | req }
-                       , response :: { writer :: rw ResponseEnded | res }
+                       { request :: req
+                       , response :: (res ResponseEnded)
                        , components :: c
                        }
                        Unit)
@@ -268,12 +269,13 @@ instance routerResource :: ( IsSymbol m
 
 
 router
-  :: forall s r m req res c rw.
-     ( Monad m
+  :: forall s r m req res c
+   . ( Monad m
+     , Request req m
      , Router s r (Middleware
                    m
-                   (Conn { method :: Method', url :: String | req } { writer :: rw StatusLineOpen | res } c)
-                   (Conn { method :: Method', url :: String | req } { writer :: rw ResponseEnded | res } c)
+                   (Conn req (res StatusLineOpen) c)
+                   (Conn req (res ResponseEnded) c)
                    Unit)
      ) =>
      Proxy s
@@ -282,13 +284,13 @@ router
       -> Maybe String
       -> Middleware
          m
-         (Conn { method :: Method', url :: String | req } { writer :: rw StatusLineOpen | res } c)
-         (Conn { method :: Method', url :: String | req } { writer :: rw ResponseEnded | res } c)
+         (Conn req (res StatusLineOpen) c)
+         (Conn req (res ResponseEnded) c)
          Unit)
   -> Middleware
      m
-     (Conn { method :: Method', url :: String | req } { writer :: rw StatusLineOpen | res } c)
-     (Conn { method :: Method', url :: String | req } { writer :: rw ResponseEnded | res } c)
+     (Conn req (res StatusLineOpen) c)
+     (Conn req (res ResponseEnded) c)
      Unit
 
 router site handler onRoutingError = do
@@ -299,20 +301,21 @@ router site handler onRoutingError = do
   -- # either catch runHandler
   where
     splitUrl = filter ((/=) "") <<< split (Pattern "/")
-    context conn = { path: splitUrl conn.request.url
-                   , method: conn.request.method
-                   }
+    context requestData =
+      { path: splitUrl requestData.url
+      , method: requestData.method
+      }
     catch (HTTPError { status, message }) =
       onRoutingError status message
 
     handler' ∷ Middleware
                m
-               (Conn { method :: Method', url :: String | req } { writer :: rw StatusLineOpen | res } c)
-               (Conn { method :: Method', url :: String | req } { writer :: rw ResponseEnded | res } c)
+               (Conn req (res StatusLineOpen) c)
+               (Conn req (res ResponseEnded) c)
                Unit
     handler' = do
-      conn ← getConn
-      case route site (context conn) handler of
+      ctx ← context <$> getRequestData
+      case route site ctx handler of
         Left err → catch err
         Right h → h
 

@@ -4,7 +4,7 @@ import Prelude
 import Data.StrMap as StrMap
 import Control.IxMonad (ibind)
 import Data.Either (Either(..))
-import Data.HTTP.Method (CustomMethod, Method(..))
+import Data.HTTP.Method (Method(..))
 import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textPlain)
 import Data.StrMap (StrMap)
@@ -12,12 +12,12 @@ import Data.String (joinWith)
 import Data.Tuple (Tuple(..))
 import Hyper.Conn (Conn)
 import Hyper.Middleware (Middleware, evalMiddleware)
-import Hyper.Response (class Response, contentType, headers, respond, class ResponseWriter, ResponseEnded, StatusLineOpen, closeHeaders, writeStatus)
+import Hyper.Response (class Response, contentType, headers, respond, class ResponseWritable, ResponseEnded, StatusLineOpen, closeHeaders, writeStatus)
 import Hyper.Routing ((:<|>))
 import Hyper.Routing.Router (router)
 import Hyper.Routing.TestSite (Home(..), User(..), UserID(..), WikiPage(..), testSite)
 import Hyper.Status (statusBadRequest, statusMethodNotAllowed, statusOK)
-import Hyper.Test.TestServer (TestResponseWriter(..), testHeaders, testServer, testStatus, testStringBody)
+import Hyper.Test.TestServer (TestRequest(..), TestResponse(..), defaultRequest, testHeaders, testServer, testStatus, testStringBody)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -41,16 +41,17 @@ saveFriend (UserID uid) =
 wiki :: forall m. Monad m => Array String -> m WikiPage
 wiki segments = pure (WikiPage (joinWith "/" segments))
 
-about :: forall m req res c rw rb.
-         ( Monad m
-         , ResponseWriter rw m rb
-         , Response rb m String
-         )
-         => Middleware
-            m
-            (Conn { method :: Either Method CustomMethod, url :: String | req } { writer :: rw StatusLineOpen | res } c)
-            (Conn { method :: Either Method CustomMethod, url :: String | req } { writer :: rw ResponseEnded | res } c)
-            Unit
+about
+  :: forall m req res c rb
+   . ( Monad m
+     , Response res m rb
+     , ResponseWritable rb m String
+     )
+  => Middleware
+     m
+     (Conn req (res StatusLineOpen) c)
+     (Conn req (res ResponseEnded) c)
+     Unit
 about = do
   writeStatus statusOK
   contentType textPlain
@@ -76,11 +77,11 @@ spec =
           where bind = ibind
 
         makeRequestWithHeaders method path headers =
-          let conn = { request: { method: Left method
-                                , url: path
-                                , headers: headers
-                                }
-                     , response: { writer: TestResponseWriter }
+          let conn = { request: TestRequest (defaultRequest { method = Left method
+                                                            , url = path
+                                                            , headers = headers
+                                                            })
+                     , response: TestResponse Nothing [] []
                      , components: {}
                      }
               app = router testSite handlers onRoutingError

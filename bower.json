@@ -14,7 +14,7 @@
   "dependencies": {
     "purescript-prelude": "^2.5.0",
     "purescript-console": "^2.0.0",
-    "purescript-hyper": "^0.5.0",
+    "purescript-hyper": "^0.6.0",
     "purescript-hyper-routing": "^0.6.0"
   },
   "devDependencies": {
