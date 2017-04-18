@@ -7,7 +7,7 @@ type-level routing.
 ## Usage
 
 For the documentation on how to use this package, please see [the
-tutorials](https://owickstrom.github.io/purescript-hypertrout).
+tutorials](https://owickstrom.github.io/purescript-hypertrout/).
 
 There are also [runnable examples in this repository](examples/).
 
