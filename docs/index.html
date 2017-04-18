@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <meta name="author" content="Oskar Wickström">
+  <title>Servers for Hyper Routing Types</title>
+
+  <meta name="keywords" content="http web purescript middleware routing type-safe">
+  <meta name="description" content="Hyper is an experimental middleware architecture for HTTP servers written in PureScript.">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="shortcut icon" href="static/favicon.png">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:creator" content="owickstrom">
+  <meta name="twitter:title" content="Hyper">
+  <meta name="twitter:url" content="http://hyper.wickstrom.tech">
+  <meta name="twitter:description" content="Hyper is an experimental middleware architecture for HTTP servers written in PureScript.">
+  <meta name="twitter:image:src" content="http://hyper.wickstrom.tech/static/icon-large.png">
+
+  <meta property="og:type" content="article">
+  <meta property="og:article:author" content="Oskar Wickström">
+  <meta property="og:article:section" content="Technology">
+  <meta property="og:article:keyword" content="http web purescript middleware routing type-safe">
+  <meta property="og:title" content="Hyper">
+  <meta property="og:description" content="Hyper is an experimental middleware architecture for HTTP servers written in PureScript.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="http://hyper.wickstrom.tech">
+  <meta property="og:image" content="http://hyper.wickstrom.tech/static/icon-large.png">
+
+  <link rel="stylesheet" href="static/docs.css">
+  <link rel="stylesheet" href="static/syntax.css">
+  <link href="https://fonts.googleapis.com/css?family=Fira+Mono|Fira+Sans:400,400i,600" rel="stylesheet">
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body itemscope itemtype="http://schema.org/TechArticle">
+<header>
+<h1 class="title" itemprop="name">Servers for Hyper Routing Types</h1>
+<cite class="author" itemprop="author">By Oskar Wickström</cite>
+</header>
+<h2 id="contents">Contents</h2>
+<nav id="TOC">
+<ul>
+<li><a href="#purpose">Purpose</a></li>
+<li><a href="#a-single-resource-example">A Single-Resource Example</a></li>
+<li><a href="#routing-multiple-resources">Routing Multiple Resources</a></li>
+<li><a href="#multi-method-resources">Multi-Method Resources</a></li>
+<li><a href="#content-negotiation">Content Negotiation</a></li>
+</ul>
+</nav>
+<h2 id="purpose">Purpose</h2>
+<p>The purpose of this package, <a href="https://github.com/owickstrom/purescript-hyper-routing-server">purescript-hyper-routing-server</a>, is writing web servers using the <em>type-level routing API</em> in <a href="https://github.com/owickstrom/purescript-hyper-routing">purescript-hyper-routing</a>. It provides a router middleware which, together with handler functions and rendering functions, gives us a full-fledged server.</p>
+<h2 id="a-single-resource-example">A Single-Resource Example</h2>
+<p>Let’s say we want to render a home page as HTML. We start out by declaring the data type <code>Home</code>, and the structure of our site:</p>
+<div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
+
+<span class="kw">type</span> <span class="dt">Site1</span> <span class="fu">=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span>) <span class="dt">HTML</span></code></pre></div>
+<p><code>Resource (Get Home) HTML</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em>. A handler for <code>Site1</code> would be some value of the following type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span></code></pre></div>
+<p>We can construct such a value using <code>pure</code> and a <code>Home</code> value:</p>
+<div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">home ::</span> forall m<span class="fu">.</span> <span class="dt">Applicative</span> m <span class="ot">=&gt;</span> m <span class="dt">Home</span>
+home <span class="fu">=</span> pure <span class="dt">Home</span></code></pre></div>
+<p>Nice! But what comes out on the other end? We need something that renders the <code>Home</code> value as HTML. By providing an instance of <code>EncodeHTML</code> for <code>Home</code>, we instruct the resource how to render.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span><span class="ot"> encodeHTMLHome ::</span> <span class="dt">EncodeHTML</span> <span class="dt">Home</span> <span class="kw">where</span>
+  encodeHTML <span class="dt">Home</span> <span class="fu">=</span>
+    p (text <span class="st">&quot;Welcome to my site!&quot;</span>)</code></pre></div>
+<p>The <code>HTML</code> type is a phantom type, only used as a marker type, and the actual markup is written in the <code>MarkupM</code> DSL from <a href="https://github.com/bodil/purescript-smolder">purescript-smolder</a>.</p>
+<p>We are getting ready to create the server. First, we need a value-level representation of the <code>Site1</code> type, to be able to pass it to the <code>router</code> function. For that we use <a href="https://pursuit.purescript.org/packages/purescript-proxy/1.0.0/docs/Type.Proxy">Proxy</a>. Its documentation describes it as follows:</p>
+<blockquote>
+<p>The Proxy type and values are for situations where type information is required for an input to determine the type of an output, but where it is not possible or convenient to provide a value for the input.</p>
+</blockquote>
+<p>We create a top-level definition of the type <code>Proxy Site1</code> with the value constructor <code>Proxy</code>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">site1 ::</span> <span class="dt">Proxy</span> <span class="dt">Site1</span>
+site1 <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
+<p>We pass the proxy, our handler, and the <code>onRoutingError</code> function for cases where no route matched the request, to the <code>router</code> function.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">    onRoutingError status msg <span class="fu">=</span>
+      writeStatus status
+      <span class="fu">:*&gt;</span> contentType textHTML
+      <span class="fu">:*&gt;</span> closeHeaders
+      <span class="fu">:*&gt;</span> respond (maybe <span class="st">&quot;&quot;</span> id msg)
+
+    siteRouter <span class="fu">=</span> router site1 home onRoutingError</code></pre></div>
+<p>The value returned by <code>router</code> is regular middleware, ready to be passed to a server.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> forall e<span class="fu">.</span> <span class="dt">Eff</span> (<span class="ot">http ::</span> <span class="dt">HTTP</span>,<span class="ot"> console ::</span> <span class="dt">CONSOLE</span>,<span class="ot"> buffer ::</span> <span class="dt">BUFFER</span> <span class="fu">|</span> e) <span class="dt">Unit</span>
+main <span class="fu">=</span>
+  runServer defaultOptions {} siteRouter
+  <span class="kw">where</span></code></pre></div>
+<h2 id="routing-multiple-resources">Routing Multiple Resources</h2>
+<p>Real-world servers often need more than one resource. Let’s define a router for an application that shows a home page with links, a page listing users, and a page rendering a specific user.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
+
+<span class="kw">data</span> <span class="dt">AllUsers</span> <span class="fu">=</span> <span class="dt">AllUsers</span> (<span class="dt">Array</span> <span class="dt">User</span>)
+
+<span class="kw">newtype</span> <span class="dt">User</span> <span class="fu">=</span> <span class="dt">User</span> {<span class="ot"> id ::</span> <span class="dt">Int</span>,<span class="ot"> name ::</span> <span class="dt">String</span> }
+
+<span class="kw">type</span> <span class="dt">Site2</span> <span class="fu">=</span>
+  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span>) <span class="dt">HTML</span>
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span>) <span class="dt">HTML</span>
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span>) <span class="dt">HTML</span>
+
+<span class="ot">site2 ::</span> <span class="dt">Proxy</span> <span class="dt">Site2</span>
+site2 <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
+<p>Let’s go through the new constructs used:</p>
+<ul>
+<li><code>:&lt;|&gt;</code> is a type operator that separates <em>alternatives</em>. A router for this type will try each route in order until one matches.</li>
+<li><code>:/</code> separates a literal path segment and the rest of the routing type.</li>
+<li><code>Capture</code> takes a descriptive string and a type. It takes the next available path segment and tries to convert it to the given type. Each capture in a routing type corresponds to an argument in the handler function.</li>
+<li><code>:&gt;</code> separates a routing type modifier, like <code>Capture</code>, and the rest of the routing type.</li>
+</ul>
+<p>We define handlers for our resource methods as regular functions on the specified data types, returning <code>ExceptT RoutingError m a</code> values, where <code>m</code> is the monad of our middleware, and <code>a</code> is the type to render for the resource.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">home ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span>
+home <span class="fu">=</span> pure <span class="dt">Home</span>
+
+<span class="ot">allUsers ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">AllUsers</span>
+allUsers <span class="fu">=</span> <span class="dt">AllUsers</span> <span class="fu">&lt;$&gt;</span> getUsers
+
+<span class="ot">getUser ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">User</span>
+getUser id&#39; <span class="fu">=</span>
+  find userWithId <span class="fu">&lt;$&gt;</span> getUsers <span class="fu">&gt;&gt;=</span>
+  <span class="kw">case</span> _ <span class="kw">of</span>
+    <span class="dt">Just</span> user <span class="ot">-&gt;</span> pure user
+    <span class="dt">Nothing</span> <span class="ot">-&gt;</span>
+      throwError (<span class="dt">HTTPError</span> { status<span class="fu">:</span> statusNotFound
+                            , message<span class="fu">:</span> <span class="dt">Just</span> <span class="st">&quot;User not found.&quot;</span>
+                            })
+  <span class="kw">where</span>
+    userWithId (<span class="dt">User</span> u) <span class="fu">=</span> u<span class="fu">.</span>id <span class="fu">==</span> id&#39;</code></pre></div>
+<p>As in the single-resource example, we want to render as HTML. Let’s create instances for our data types. Notice how we can create links between routes in a type-safe manner.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span><span class="ot"> encodeHTMLHome ::</span> <span class="dt">EncodeHTML</span> <span class="dt">Home</span> <span class="kw">where</span>
+  encodeHTML <span class="dt">Home</span> <span class="fu">=</span>
+    <span class="kw">case</span> linksTo site2 <span class="kw">of</span>
+      _ <span class="fu">:&lt;|&gt;</span> allUsers&#39; <span class="fu">:&lt;|&gt;</span> _ <span class="ot">-&gt;</span>
+        p <span class="kw">do</span>
+          text <span class="st">&quot;Welcome to my site! Go check out my &quot;</span>
+          linkTo allUsers&#39; (text <span class="st">&quot;Users&quot;</span>)
+          text <span class="st">&quot;.&quot;</span>
+
+<span class="kw">instance</span><span class="ot"> encodeHTMLAllUsers ::</span> <span class="dt">EncodeHTML</span> <span class="dt">AllUsers</span> <span class="kw">where</span>
+  encodeHTML (<span class="dt">AllUsers</span> users) <span class="fu">=</span>
+    div <span class="kw">do</span>
+      h1 (text <span class="st">&quot;Users&quot;</span>)
+      ul (traverse_ linkToUser users)
+    <span class="kw">where</span>
+      linkToUser (<span class="dt">User</span> u) <span class="fu">=</span>
+        <span class="kw">case</span> linksTo site2 <span class="kw">of</span>
+          _ <span class="fu">:&lt;|&gt;</span> _ <span class="fu">:&lt;|&gt;</span> getUser&#39; <span class="ot">-&gt;</span>
+            li (linkTo (getUser&#39; u<span class="fu">.</span>id) (text u<span class="fu">.</span>name))
+
+<span class="kw">instance</span><span class="ot"> encodeHTMLUser ::</span> <span class="dt">EncodeHTML</span> <span class="dt">User</span> <span class="kw">where</span>
+  encodeHTML (<span class="dt">User</span> { name }) <span class="fu">=</span>
+    h1 (text name)</code></pre></div>
+<p>The pattern match on the value returned by <code>linksTo</code> must match the structure of the routing type. We use <code>:&lt;|&gt;</code> to pattern match on links. Each matched link will have a type based on the corresponding resource. <code>getUser</code> in the previous code has type <code>Int -&gt; URI</code>, while <code>allUsers</code> has no captures and thus has type <code>URI</code>.</p>
+<p>We are still missing <code>getUsers</code>, our source of User values. In a real application it would probably be a database query, but for this example we simply hard-code some famous users of proper instruments.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getUsers ::</span> forall m<span class="fu">.</span> <span class="dt">Applicative</span> m <span class="ot">=&gt;</span> m (<span class="dt">Array</span> <span class="dt">User</span>)
+getUsers <span class="fu">=</span>
+  pure
+  [ <span class="dt">User</span> { id<span class="fu">:</span> <span class="dv">1</span>, name<span class="fu">:</span> <span class="st">&quot;John Paul Jones&quot;</span> }
+  , <span class="dt">User</span> { id<span class="fu">:</span> <span class="dv">2</span>, name<span class="fu">:</span> <span class="st">&quot;Tal Wilkenfeld&quot;</span> }
+  , <span class="dt">User</span> { id<span class="fu">:</span> <span class="dv">3</span>, name<span class="fu">:</span> <span class="st">&quot;John Patitucci&quot;</span> }
+  , <span class="dt">User</span> { id<span class="fu">:</span> <span class="dv">4</span>, name<span class="fu">:</span> <span class="st">&quot;Jaco Pastorious&quot;</span> }
+  ]</code></pre></div>
+<p>Almost done! We just need to create the router, and start a server.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> forall e<span class="fu">.</span> <span class="dt">Eff</span> (<span class="ot">http ::</span> <span class="dt">HTTP</span>,<span class="ot"> console ::</span> <span class="dt">CONSOLE</span>,<span class="ot"> buffer ::</span> <span class="dt">BUFFER</span> <span class="fu">|</span> e) <span class="dt">Unit</span>
+main <span class="fu">=</span>
+  <span class="kw">let</span> otherSiteRouter <span class="fu">=</span>
+        router site2 (home <span class="fu">:&lt;|&gt;</span> allUsers <span class="fu">:&lt;|&gt;</span> getUser) onRoutingError
+
+      onRoutingError status msg <span class="fu">=</span>
+        writeStatus status
+        <span class="fu">:*&gt;</span> contentType textHTML
+        <span class="fu">:*&gt;</span> closeHeaders
+        <span class="fu">:*&gt;</span> respond (maybe <span class="st">&quot;&quot;</span> id msg)
+
+  <span class="kw">in</span> runServer defaultOptions {} otherSiteRouter</code></pre></div>
+<p>Notice how the composition of handler functions, using the value-level operator <code>:&lt;|&gt;</code>, matches the structure of our routing type. If we fail to match the type we get a compile error.</p>
+<h2 id="multi-method-resources">Multi-Method Resources</h2>
+<p>So far we have just used a single method per resource, the <code>Get</code> method. By replacing the single method type with a sequence of alternatives, constructed with the type-level operator <code>:&lt;|&gt;</code>, we get a resource with multiple methods.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">MultiMethodExample</span> <span class="fu">=</span>
+  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">Delete</span> <span class="dt">User</span>) <span class="dt">HTML</span></code></pre></div>
+<p><code>MultiMethodExample</code> is a routing type with a <em>single resource</em>, which has <em>multiple resource methods</em>. Handlers for the resource methods needs to be separated by the value-level operator <code>:&lt;|&gt;</code>, just as with handlers for different resources.</p>
+<h2 id="content-negotiation">Content Negotiation</h2>
+<p>By specifying alternative content types for a resource, Hyper can choose a response and content type based on the request <code>Accept</code> header. This is called <em>content negotiation</em>. Instead of specifying a single type, like <code>HTML</code> or <code>JSON</code>, we provide alternatives using <code>:&lt;|&gt;</code>. All content types must have <code>MimeRender</code> instances for the response body type.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Site3</span> <span class="fu">=</span>
+  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span>) <span class="dt">HTML</span>
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span>) (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span>) (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>)</code></pre></div>
+<p>By making requests to this site, using <code>Accept</code> headers, we can see how the router chooses the matching content type (output formatted and shortened for readability).</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="op">&lt;</span><span class="ex">strong</span><span class="op">&gt;</span>curl -H <span class="st">&#39;Accept: application/json&#39;</span> http://localhost:3000/users<span class="op">&lt;</span>/strong<span class="op">&gt;</span>
+<span class="bu">[</span>
+  {
+    <span class="st">&quot;name&quot;</span>: <span class="st">&quot;John Paul Jones&quot;</span>,
+    <span class="st">&quot;id&quot;</span>: <span class="st">&quot;1&quot;</span>
+  },
+  {
+    <span class="st">&quot;name&quot;</span>: <span class="st">&quot;Tal Wilkenfeld&quot;</span>,
+    <span class="st">&quot;id&quot;</span>: <span class="st">&quot;2&quot;</span>
+  },
+  ...
+<span class="bu">]</span></code></pre></div>
+<p>There is support for <em>wildcards</em> and <em>qualities</em> as well.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="ex">curl</span> -H <span class="st">&#39;Accept: text/*;q=1.0&#39;</span> http://localhost:3000/users
+<span class="op">&lt;</span><span class="ex">div</span><span class="op">&gt;</span>
+  <span class="op">&lt;</span><span class="ex">h1</span><span class="op">&gt;</span>Users<span class="op">&lt;</span>/h1<span class="op">&gt;</span>
+  <span class="op">&lt;</span><span class="ex">ul</span><span class="op">&gt;</span>
+    <span class="op">&lt;</span><span class="ex">li</span><span class="op">&gt;&lt;</span>a href=<span class="st">&quot;/users/1&quot;</span><span class="op">&gt;</span>John Paul Jones<span class="op">&lt;</span>/a<span class="op">&gt;&lt;</span>/li<span class="op">&gt;</span>
+    <span class="op">&lt;</span><span class="ex">li</span><span class="op">&gt;&lt;</span>a href=<span class="st">&quot;/users/2&quot;</span><span class="op">&gt;</span>Tal Wilkenfeld<span class="op">&lt;</span>/a<span class="op">&gt;&lt;</span>/li<span class="op">&gt;</span>
+    <span class="ex">...</span>
+  <span class="op">&lt;</span>/<span class="ex">ul</span><span class="op">&gt;</span>
+<span class="op">&lt;</span>/<span class="ex">div</span><span class="op">&gt;</span></code></pre></div>
+<footer>
+  <a href="https://github.com/owickstrom/purescript-hyper-routing-server">purescript-hyper-routing-server</a>
+  &mdash;
+  &copy; Copyright 2016-2017 Oskar Wickström
+  &mdash;
+  Licensed under MPL-2.0
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.js"></script>
+</body>
+</html>

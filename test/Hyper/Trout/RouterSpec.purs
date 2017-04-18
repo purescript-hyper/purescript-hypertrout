@@ -1,10 +1,10 @@
-module Hyper.Routing.RouterSpec (spec) where
+module Hyper.Trout.RouterSpec (spec) where
 
 import Prelude
 import Data.StrMap as StrMap
-import Control.IxMonad (ibind)
+import Control.IxMonad ((:*>))
 import Data.Either (Either(..))
-import Data.HTTP.Method (Method(..))
+import Data.HTTP.Method (Method(POST, GET))
 import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textPlain)
 import Data.StrMap (StrMap)
@@ -12,14 +12,15 @@ import Data.String (joinWith)
 import Data.Tuple (Tuple(..))
 import Hyper.Conn (Conn)
 import Hyper.Middleware (Middleware, evalMiddleware)
+import Hyper.Request (class Request)
 import Hyper.Response (class Response, contentType, headers, respond, class ResponseWritable, ResponseEnded, StatusLineOpen, closeHeaders, writeStatus)
-import Hyper.Routing ((:<|>))
-import Hyper.Routing.Router (router)
-import Hyper.Routing.TestSite (Home(..), User(..), UserID(..), WikiPage(..), testSite)
 import Hyper.Status (statusBadRequest, statusMethodNotAllowed, statusOK)
-import Hyper.Test.TestServer (TestRequest(..), TestResponse(..), defaultRequest, testHeaders, testServer, testStatus, testStringBody)
+import Hyper.Test.TestServer (TestResponse(..), TestRequest(..), defaultRequest, testHeaders, testServer, testStatus, testStringBody)
+import Hyper.Trout.TestSite (Home(..), User(..), UserID(..), WikiPage(..), testSite)
+import Hyper.Trout.Router (router)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
+import Type.Trout ((:<|>))
 
 home :: forall m. Monad m => m Home
 home = pure Home
@@ -41,23 +42,21 @@ saveFriend (UserID uid) =
 wiki :: forall m. Monad m => Array String -> m WikiPage
 wiki segments = pure (WikiPage (joinWith "/" segments))
 
-about
-  :: forall m req res c rb
-   . ( Monad m
-     , Response res m rb
-     , ResponseWritable rb m String
-     )
-  => Middleware
-     m
-     (Conn req (res StatusLineOpen) c)
-     (Conn req (res ResponseEnded) c)
-     Unit
+about :: forall m req res c r
+          . Monad m
+         => Request req m
+         => Response res m r
+         => ResponseWritable r m String
+         => Middleware
+            m
+            (Conn req (res StatusLineOpen) c)
+            (Conn req (res ResponseEnded) c)
+            Unit
 about = do
   writeStatus statusOK
-  contentType textPlain
-  closeHeaders
-  respond "This is a test."
-  where bind = ibind
+  :*> contentType textPlain
+  :*> closeHeaders
+  :*> respond "This is a test."
 
 spec :: forall e. Spec e Unit
 spec =
@@ -72,21 +71,19 @@ spec =
 
         onRoutingError status msg = do
           writeStatus status
-          headers []
-          respond (maybe "" id msg)
-          where bind = ibind
+          :*> headers []
+          :*> respond (maybe "" id msg)
 
         makeRequestWithHeaders method path headers =
-          let conn = { request: TestRequest (defaultRequest { method = Left method
-                                                            , url = path
-                                                            , headers = headers
-                                                            })
-                     , response: TestResponse Nothing [] []
-                     , components: {}
-                     }
-              app = router testSite handlers onRoutingError
-          in evalMiddleware app conn
-             # testServer
+          { request: TestRequest defaultRequest { method = Left method
+                                                , url = path
+                                                , headers = headers
+                                                }
+          , response: TestResponse Nothing [] []
+          , components: {}
+          }
+          # evalMiddleware (router testSite handlers onRoutingError)
+          # testServer
 
         makeRequest method path =
           makeRequestWithHeaders method path (StrMap.empty :: StrMap String)

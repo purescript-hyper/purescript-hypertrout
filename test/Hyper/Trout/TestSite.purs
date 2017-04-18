@@ -1,17 +1,17 @@
-module Hyper.Routing.TestSite where
+module Hyper.Trout.TestSite where
 
 import Prelude
 import Data.Argonaut (class EncodeJson, jsonEmptyObject, (:=), (~>))
 import Data.Either (Either(..))
 import Data.String (trim)
-import Hyper.Routing (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource)
-import Hyper.Routing.ContentType.HTML (HTML, class EncodeHTML)
-import Hyper.Routing.ContentType.JSON (JSON)
-import Hyper.Routing.Method (Get, Post)
-import Hyper.Routing.PathPiece (class FromPathPiece, class ToPathPiece)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
+import Type.Trout (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource)
+import Type.Trout.ContentType.HTML (HTML, class EncodeHTML)
+import Type.Trout.ContentType.JSON (JSON)
+import Type.Trout.Method (Get, Post)
+import Type.Trout.PathPiece (class FromPathPiece, class ToPathPiece)
 
 data Home = Home
 
