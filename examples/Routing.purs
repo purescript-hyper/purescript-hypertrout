@@ -9,7 +9,8 @@ import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT)
-import Data.Argonaut (class EncodeJson, gEncodeJson, jsonEmptyObject, (:=), (~>))
+import Data.Argonaut (class EncodeJson, jsonEmptyObject, (:=), (~>))
+import Data.Argonaut.Encode.Generic (gEncodeJson)
 import Data.Array (find, (..))
 import Data.Foldable (traverse_)
 import Data.Generic (class Generic)
@@ -17,17 +18,17 @@ import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textHTML)
 import Hyper.Node.Server (defaultOptions, runServer)
 import Hyper.Response (closeHeaders, contentType, respond, writeStatus)
-import Hyper.Routing (type (:/), type (:<|>), type (:>), Capture, (:<|>))
-import Hyper.Routing.ContentType.HTML (class EncodeHTML, HTML, linkTo)
-import Hyper.Routing.ContentType.JSON (JSON)
-import Hyper.Routing.Links (linksTo)
-import Hyper.Routing.Method (Get)
-import Hyper.Routing.Router (RoutingError(..), router)
+import Hyper.Trout.Router (RoutingError(..), router)
 import Hyper.Status (statusNotFound)
 import Node.HTTP (HTTP)
 import Text.Smolder.HTML (h1, li, nav, p, section, ul)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
+import Type.Trout (type (:/), type (:<|>), type (:>), Capture, (:<|>), Resource)
+import Type.Trout.ContentType.HTML (class EncodeHTML, HTML, linkTo)
+import Type.Trout.ContentType.JSON (JSON)
+import Type.Trout.Links (linksTo)
+import Type.Trout.Method (Get)
 
 type PostID = Int
 
@@ -69,8 +70,8 @@ instance encodeHTMLPostsView :: EncodeHTML PostsView where
             h1 (text "Posts")
             ul (traverse_ postLink posts)
 
-type Site = Get (HTML :<|> JSON) PostsView
-            :<|> "posts" :/ Capture "id" PostID :> Get (HTML :<|> JSON) Post
+type Site = Resource (Get PostsView) (HTML :<|> JSON)
+            :<|> "posts" :/ Capture "id" PostID :> Resource (Get Post) (HTML :<|> JSON)
 
 site :: Proxy Site
 site = Proxy

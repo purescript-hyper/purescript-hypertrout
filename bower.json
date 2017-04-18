@@ -20,6 +20,7 @@
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",
     "purescript-spec": "^0.13.0",
-    "purescript-spec-discovery": "^0.5.0"
+    "purescript-spec-discovery": "^0.5.0",
+    "purescript-argonaut-generic": "*"
   }
 }

@@ -10,17 +10,18 @@ import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Data.Maybe (fromMaybe)
 import Hyper.Node.Server (defaultOptionsWithLogging, runServer')
 import Hyper.Response (closeHeaders, respond, writeStatus)
-import Hyper.Routing.ContentType.HTML (class EncodeHTML, HTML)
-import Hyper.Routing.Method (Get)
-import Hyper.Routing.Router (RoutingError, router)
+import Hyper.Trout.Router (RoutingError, router)
 import Node.HTTP (HTTP)
 import Text.Smolder.HTML (p)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
+import Type.Trout (Resource)
+import Type.Trout.ContentType.HTML (class EncodeHTML, HTML)
+import Type.Trout.Method (Get)
 
 data Greeting = Greeting String
 
-type Site = Get HTML Greeting
+type Site = Resource (Get Greeting) HTML
 
 instance encodeHTMLGreeting :: EncodeHTML Greeting where
   encodeHTML (Greeting g) = p (text g)
