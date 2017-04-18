@@ -1,3 +1,5 @@
+VERSION ?= $(shell git rev-parse --short HEAD)
+
 all: html examples docs-examples
 
 .PHONY: html
@@ -11,7 +13,8 @@ docs/index.html: docs/src/index.md docs/src/template.html docs/src/*.purs
 		-S \
 		--filter pandoc-include-code \
 		--toc \
-		"--metadata=subtitle:$(VERSION)" \
+		"--metadata=subtitle:Build servers in Hyper using Trout" \
+		"--metadata=version:$(VERSION)" \
 		--template=docs/src/template.html \
 		-o $@
 

@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <meta name="author" content="Oskar Wickström">
-  <title>Servers for Hyper Routing Types</title>
+  <title>Hypertrout</title>
 
   <meta name="keywords" content="http web purescript middleware routing type-safe">
   <meta name="description" content="Build servers in Hyper using Trout">
@@ -40,7 +40,8 @@
 </head>
 <body itemscope itemtype="http://schema.org/TechArticle">
 <header>
-<h1 class="title" itemprop="name">Servers for Hyper Routing Types</h1>
+<h1 class="title" itemprop="name">Hypertrout</h1>
+<p class="subtitle" itemprop="version">Build servers in Hyper using Trout</p>
 <cite class="author" itemprop="author">By Oskar Wickström</cite>
 </header>
 <h2 id="contents">Contents</h2>
@@ -54,7 +55,7 @@
 </ul>
 </nav>
 <h2 id="purpose">Purpose</h2>
-<p>The purpose of this package, <a href="https://github.com/owickstrom/purescript-hyper-routing-server">purescript-hyper-routing-server</a>, is writing web servers using the <em>type-level routing API</em> in <a href="https://github.com/owickstrom/purescript-hyper-routing">purescript-hyper-routing</a>. It provides a router middleware which, together with handler functions and rendering functions, gives us a full-fledged server.</p>
+<p>The purpose of this package, <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>, is writing web servers using the <em>type-level routing API</em> in <a href="https://github.com/owickstrom/purescript-trout">Trout</a>. It provides a router middleware which, together with handler functions and rendering functions, gives us a full-fledged server.</p>
 <h2 id="a-single-resource-example">A Single-Resource Example</h2>
 <p>Let’s say we want to render a home page as HTML. We start out by declaring the data type <code>Home</code>, and the structure of our site:</p>
 <div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
@@ -213,7 +214,9 @@ main <span class="fu">=</span>
   <span class="op">&lt;</span>/<span class="ex">ul</span><span class="op">&gt;</span>
 <span class="op">&lt;</span>/<span class="ex">div</span><span class="op">&gt;</span></code></pre></div>
 <footer>
-  <a href="https://github.com/owickstrom/purescript-hypertrout">purescript-hypertrout</a>
+  <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>
+  &mdash;
+  ae6ecc9
   &mdash;
   &copy; Copyright 2016-2017 Oskar Wickström
   &mdash;

@@ -147,6 +147,11 @@ h6 {
   margin: 1.5em 0 .5em 0;
 }
 
+header .subtitle {
+  text-align: center;
+  font-size: 125%;
+}
+
 h2 {
   padding-bottom: .25em;
   border-bottom: 1px solid #ddd;

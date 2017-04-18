@@ -1,14 +1,14 @@
 ---
-title: Servers for Hyper Routing Types
+title: Hypertrout
 author: Oskar Wickström
 ---
 
 ## Purpose
 
 The purpose of this package,
-[purescript-hyper-routing-server](https://github.com/owickstrom/purescript-hyper-routing-server),
+[Hypertrout](https://github.com/owickstrom/purescript-hypertrout),
 is writing web servers using the *type-level routing API* in
-[purescript-hyper-routing](https://github.com/owickstrom/purescript-hyper-routing).
+[Trout](https://github.com/owickstrom/purescript-trout).
 It provides a router middleware which, together with handler functions
 and rendering functions, gives us a full-fledged server.
 
