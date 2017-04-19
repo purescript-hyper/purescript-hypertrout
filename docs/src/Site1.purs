@@ -44,8 +44,8 @@ site1 = Proxy
 main :: forall e. Eff (http :: HTTP, console :: CONSOLE, buffer :: BUFFER | e) Unit
 main =
   runServer defaultOptions {} siteRouter
-  where
 -- end snippet main
+  where
 
     -- start snippet router
     onRoutingError status msg =
