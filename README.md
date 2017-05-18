@@ -1,8 +1,20 @@
-# purescript-hypertrout
+<div align="center">
+<h1>
+<img src="hypertrout.png"
+      alt="Hyper"
+      width="300">trout
+</h1>
+</div>
 
-_Hypertrout_ lets you build Hyper web servers on top of the
-[purescript-trout](https://github.com/owickstrom/purescript-trout) API for
-type-level routing.
+<p align="center">
+<em>Type-level routing for Hyper web servers using Trout.</em>
+</p>
+
+<hr>
+
+Hypertrout lets you build [Hyper](https://hyper.wickstrom.tech) web servers on
+top of the [purescript-trout](https://github.com/owickstrom/purescript-trout)
+API for type-level routing.
 
 ## Usage
 
