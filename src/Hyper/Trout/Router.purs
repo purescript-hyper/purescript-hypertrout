@@ -12,16 +12,16 @@ import Type.Trout as Trout
 import Control.IxMonad (ibind, (:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
-import Data.Array (elem, filter, null, uncons)
-import Data.Either (Either(..))
+import Data.Array (elem, null, uncons)
+import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Eq (genericEq)
 import Data.Generic.Rep.Show (genericShow)
 import Data.HTTP.Method (CustomMethod, Method)
+import Data.Lazy (force)
 import Data.Maybe (Maybe(..))
 import Data.MediaType.Common (textPlain)
 import Data.StrMap (StrMap)
-import Data.String (Pattern(..), split)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
@@ -39,6 +39,7 @@ import Type.Trout.PathPiece (class FromPathPiece, fromPathPiece)
 type Method' = Either Method CustomMethod
 
 type RoutingContext = { path :: Array String
+                      , query :: Array (Tuple String (Maybe String))
                       , method :: Method'
                       }
 
@@ -274,9 +275,10 @@ router site handler onRoutingError = do
   -- Then, if successful, run the handler, possibly also generating an HTTPError.
   -- # either catch runHandler
   where
-    splitUrl = filter ((/=) "") <<< split (Pattern "/")
-    context { url, method } =
-      { path: splitUrl url
+    context { parsedUrl, method } =
+      let parsedUrl' = force parsedUrl in
+      { path: parsedUrl'.path
+      , query: either (const []) id parsedUrl'.query
       , method: method
       }
     catch (HTTPError { status, message }) =
