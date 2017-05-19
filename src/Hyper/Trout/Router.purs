@@ -24,7 +24,7 @@ import Data.MediaType.Common (textPlain)
 import Data.StrMap (StrMap)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Data.Traversable (traverse)
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), lookup)
 import Hyper.Conn (Conn)
 import Hyper.ContentNegotiation (AcceptHeader, NegotiationResult(..), negotiateContent, parseAcceptHeader)
 import Hyper.Middleware (Middleware, lift')
@@ -32,7 +32,7 @@ import Hyper.Request (class Request, getRequestData)
 import Hyper.Response (class Response, class ResponseWritable, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
 import Hyper.Status (Status, statusBadRequest, statusMethodNotAllowed, statusNotAcceptable, statusNotFound, statusOK)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:<|>), type (:>), Capture, CaptureAll, Lit, Raw, (:<|>))
+import Type.Trout (type (:<|>), type (:>), Capture, CaptureAll, Lit, QueryParam, Raw, (:<|>))
 import Type.Trout.ContentType (class AllMimeRender, allMimeRender)
 import Type.Trout.PathPiece (class FromPathPiece, fromPathPiece)
 
@@ -124,6 +124,22 @@ instance routerCaptureAll :: ( Router e h out
                                         , message: Just err
                                         })
       Right xs -> route (Proxy :: Proxy e) ctx { path = [] } (r xs)
+
+
+instance routerQueryParam :: ( IsSymbol k
+                             , Router e h out
+                             , FromPathPiece t
+                             )
+                          => Router (QueryParam k t :> e) (Maybe t -> h) out where
+  route _ ctx r =
+    let v = join $ lookup (reflectSymbol (SProxy :: SProxy k)) ctx.query in
+    case fromPathPiece <$> v of
+      Nothing -> go Nothing
+      Just (Right v') -> go (Just v')
+      Just (Left err) -> throwError (HTTPError { status: statusBadRequest
+                                               , message: Just err
+                                               })
+    where go = route (Proxy :: Proxy e) ctx <<< r
 
 
 routeEndpoint :: forall e r method

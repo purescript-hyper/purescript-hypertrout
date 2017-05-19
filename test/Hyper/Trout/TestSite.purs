@@ -3,11 +3,12 @@ module Hyper.Trout.TestSite where
 import Prelude
 import Data.Argonaut (class EncodeJson, jsonEmptyObject, (:=), (~>))
 import Data.Either (Either(..))
+import Data.Maybe (Maybe)
 import Data.String (trim)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource)
+import Type.Trout (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource, QueryParam)
 import Type.Trout.ContentType.HTML (HTML, class EncodeHTML)
 import Type.Trout.ContentType.JSON (JSON)
 import Type.Trout.Method (Get, Post)
@@ -55,6 +56,8 @@ type TestSite =
   :<|> "users" :/ Capture "user-id" UserID :> UserResources
   -- capture all
   :<|> "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage HTML)
+  -- query string parameters
+  :<|> "search" :/ QueryParam "q" String :> Resource (Get (Maybe User) JSON)
   -- raw middleware
   :<|> "about" :/ Raw "GET"
 
