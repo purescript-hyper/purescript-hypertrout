@@ -70,8 +70,8 @@ instance encodeHTMLPostsView :: EncodeHTML PostsView where
             h1 (text "Posts")
             ul (traverse_ postLink posts)
 
-type Site = Resource (Get PostsView) (HTML :<|> JSON)
-            :<|> "posts" :/ Capture "id" PostID :> Resource (Get Post) (HTML :<|> JSON)
+type Site = Resource (Get PostsView (HTML :<|> JSON))
+            :<|> "posts" :/ Capture "id" PostID :> Resource (Get Post (HTML :<|> JSON))
 
 site :: Proxy Site
 site = Proxy

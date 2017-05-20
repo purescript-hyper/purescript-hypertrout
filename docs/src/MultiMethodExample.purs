@@ -25,7 +25,7 @@ newtype User = User { name :: String }
 
 -- start snippet routing-type
 type MultiMethodExample =
-  Resource (Get User :<|> Delete User) HTML
+  Resource (Get User HTML :<|> Delete User HTML)
 -- end snippet routing-type
 
 site :: Proxy MultiMethodExample

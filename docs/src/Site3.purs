@@ -44,9 +44,9 @@ instance encodeJsonAllUsers :: EncodeJson AllUsers where
 
 -- start snippet routing-type
 type Site3 =
-  Resource (Get Home) HTML
-  :<|> "users" :/ Resource (Get AllUsers) (HTML :<|> JSON)
-  :<|> "users" :/ Capture "user-id" Int :> Resource (Get User) (HTML :<|> JSON)
+  Resource (Get Home HTML)
+  :<|> "users" :/ Resource (Get AllUsers (HTML :<|> JSON))
+  :<|> "users" :/ Capture "user-id" Int :> Resource (Get User (HTML :<|> JSON))
 -- end snippet routing-type
 
 site3 :: Proxy Site3

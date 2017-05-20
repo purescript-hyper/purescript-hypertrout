@@ -32,9 +32,9 @@ data AllUsers = AllUsers (Array User)
 newtype User = User { id :: Int, name :: String }
 
 type Site2 =
-  Resource (Get Home) HTML
-  :<|> "users" :/ Resource (Get AllUsers) HTML
-  :<|> "users" :/ Capture "user-id" Int :> Resource (Get User) HTML
+  Resource (Get Home HTML)
+  :<|> "users" :/ Resource (Get AllUsers HTML)
+  :<|> "users" :/ Capture "user-id" Int :> Resource (Get User HTML)
 
 site2 :: Proxy Site2
 site2 = Proxy

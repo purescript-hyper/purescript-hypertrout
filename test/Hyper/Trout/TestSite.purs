@@ -46,15 +46,15 @@ instance encodeHTMLWikiPage :: EncodeHTML WikiPage where
 
 
 type UserResources =
-  "profile" :/ Resource (Get User) JSON
-  :<|> "friends" :/ Resource (Get (Array User) :<|> Post User) JSON
+  "profile" :/ Resource (Get User JSON)
+  :<|> "friends" :/ Resource (Get (Array User) JSON :<|> Post User JSON)
 
 type TestSite =
-  Resource (Get Home) (HTML :<|> JSON)
+  Resource (Get Home (HTML :<|> JSON))
   -- nested routes with capture
   :<|> "users" :/ Capture "user-id" UserID :> UserResources
   -- capture all
-  :<|> "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage) HTML
+  :<|> "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage HTML)
   -- raw middleware
   :<|> "about" :/ Raw "GET"
 

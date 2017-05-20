@@ -60,8 +60,8 @@
 <p>Let’s say we want to render a home page as HTML. We start out by declaring the data type <code>Home</code>, and the structure of our site:</p>
 <div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
 
-<span class="kw">type</span> <span class="dt">Site1</span> <span class="fu">=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span>) <span class="dt">HTML</span></code></pre></div>
-<p><code>Resource (Get Home) HTML</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em>. A handler for <code>Site1</code> would be some value of the following type:</p>
+<span class="kw">type</span> <span class="dt">Site1</span> <span class="fu">=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)</code></pre></div>
+<p><code>Resource (Get Home HTML)</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em>. A handler for <code>Site1</code> would be some value of the following type:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span></code></pre></div>
 <p>We can construct such a value using <code>pure</code> and a <code>Home</code> value:</p>
 <div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">home ::</span> forall m<span class="fu">.</span> <span class="dt">Applicative</span> m <span class="ot">=&gt;</span> m <span class="dt">Home</span>
@@ -99,9 +99,9 @@ main <span class="fu">=</span>
 <span class="kw">newtype</span> <span class="dt">User</span> <span class="fu">=</span> <span class="dt">User</span> {<span class="ot"> id ::</span> <span class="dt">Int</span>,<span class="ot"> name ::</span> <span class="dt">String</span> }
 
 <span class="kw">type</span> <span class="dt">Site2</span> <span class="fu">=</span>
-  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span>) <span class="dt">HTML</span>
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span>) <span class="dt">HTML</span>
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span>) <span class="dt">HTML</span>
+  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span>)
 
 <span class="ot">site2 ::</span> <span class="dt">Proxy</span> <span class="dt">Site2</span>
 site2 <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
@@ -181,14 +181,14 @@ main <span class="fu">=</span>
 <h2 id="multi-method-resources">Multi-Method Resources</h2>
 <p>So far we have just used a single method per resource, the <code>Get</code> method. By replacing the single method type with a sequence of alternatives, constructed with the type-level operator <code>:&lt;|&gt;</code>, we get a resource with multiple methods.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">MultiMethodExample</span> <span class="fu">=</span>
-  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">Delete</span> <span class="dt">User</span>) <span class="dt">HTML</span></code></pre></div>
+  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">Delete</span> <span class="dt">User</span> <span class="dt">HTML</span>)</code></pre></div>
 <p><code>MultiMethodExample</code> is a routing type with a <em>single resource</em>, which has <em>multiple resource methods</em>. Handlers for the resource methods needs to be separated by the value-level operator <code>:&lt;|&gt;</code>, just as with handlers for different resources.</p>
 <h2 id="content-negotiation">Content Negotiation</h2>
-<p>By specifying alternative content types for a resource, Hyper can choose a response and content type based on the request <code>Accept</code> header. This is called <em>content negotiation</em>. Instead of specifying a single type, like <code>HTML</code> or <code>JSON</code>, we provide alternatives using <code>:&lt;|&gt;</code>. All content types must have <code>MimeRender</code> instances for the response body type.</p>
+<p>By specifying alternative content types for a method, Hyper can choose a response and content type based on the request <code>Accept</code> header. This is called <em>content negotiation</em>. Instead of specifying a single type, like <code>HTML</code> or <code>JSON</code>, we provide alternatives using <code>:&lt;|&gt;</code>. All content types must have <code>MimeRender</code> instances for the response body type.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Site3</span> <span class="fu">=</span>
-  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span>) <span class="dt">HTML</span>
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span>) (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>)
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span>) (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>)</code></pre></div>
+  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span> (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>))
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>))</code></pre></div>
 <p>By making requests to this site, using <code>Accept</code> headers, we can see how the router chooses the matching content type (output formatted and shortened for readability).</p>
 <div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="op">&lt;</span><span class="ex">strong</span><span class="op">&gt;</span>curl -H <span class="st">&#39;Accept: application/json&#39;</span> http://localhost:3000/users<span class="op">&lt;</span>/strong<span class="op">&gt;</span>
 <span class="bu">[</span>
@@ -215,7 +215,7 @@ main <span class="fu">=</span>
 <footer>
   <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>
   &mdash;
-  2326251
+  d8b9997
   &mdash;
   &copy; Copyright 2016-2017 Oskar Wickström
   &mdash;

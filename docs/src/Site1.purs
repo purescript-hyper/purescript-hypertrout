@@ -21,7 +21,7 @@ import Type.Trout.Method (Get)
 -- start snippet routing-type
 data Home = Home
 
-type Site1 = Resource (Get Home) HTML
+type Site1 = Resource (Get Home HTML)
 -- end snippet routing-type
 
 -- start snippet handler

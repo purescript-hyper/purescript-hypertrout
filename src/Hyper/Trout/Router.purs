@@ -2,8 +2,6 @@ module Hyper.Trout.Router
        ( RoutingError(..)
        , class Router
        , route
-       , class MethodRouter
-       , routeMethod
        , router
        ) where
 
@@ -59,11 +57,6 @@ instance showRoutingError :: Show RoutingError where
 
 class Router e h r | e -> h, e -> r where
   route :: Proxy e -> RoutingContext -> h -> Either RoutingError r
-
-class MethodRouter m cts h r | m -> cts
-                             , m -> h
-                             , m -> r where
-  routeMethod :: Proxy m -> RoutingContext -> h -> Either RoutingError r
 
 instance routerAltE :: ( Router e1 h1 out
                        , Router e2 h2 out
@@ -162,24 +155,23 @@ getAccept m =
     Just a -> Just <$> parseAcceptHeader a
     Nothing -> pure Nothing
 
-instance methodRouterMethod :: ( Monad m
-                               , Request req m
-                               , Response res m r
-                               , ResponseWritable r m b
-                               , IsSymbol method
-                               , AllMimeRender body ct b
-                               )
-                            => MethodRouter
-                               (Trout.Method method body)
-                               ct
-                               (ExceptT RoutingError m body)
-                               (Middleware
-                                m
-                                { request :: req, response :: (res StatusLineOpen), components :: c}
-                                { request :: req, response :: (res ResponseEnded), components :: c}
-                                Unit)
+instance routerMethod :: ( Monad m
+                         , Request req m
+                         , Response res m r
+                         , ResponseWritable r m b
+                         , IsSymbol method
+                         , AllMimeRender body ct b
+                         )
+                     => Router
+                        (Trout.Method method body ct)
+                        (ExceptT RoutingError m body)
+                        (Middleware
+                        m
+                        { request :: req, response :: (res StatusLineOpen), components :: c}
+                        { request :: req, response :: (res ResponseEnded), components :: c}
+                        Unit)
   where
-  routeMethod proxy context action = do
+  route proxy context action = do
     let handler = lift' (runExceptT action) `ibind`
                   case _ of
                     Left (HTTPError { status }) -> do
@@ -245,23 +237,11 @@ instance routerRaw :: IsSymbol method
     routeEndpoint proxy context r (SProxy :: SProxy method)
 
 
-instance routerResourceMethods :: ( MethodRouter m1 cts h1 out
-                                  , MethodRouter m2 cts h2 out
-                                  )
-                               => Router (Trout.Resource (m1 :<|> m2) cts) (h1 :<|> h2) out where
-  route proxy ctx (h1 :<|> h2) =
-    case routeMethod (Proxy :: Proxy m1) ctx h1 of
-      Left _ -> routeMethod (Proxy :: Proxy m2) ctx h2
-      Right r -> pure r
-
-
-
-instance routerResource :: ( IsSymbol m
-                           , MethodRouter (Trout.Method m r) cts h out
+instance routerResource :: ( Router methods h out
                            )
-                        => Router (Trout.Resource (Trout.Method m r) cts) h out where
+                        => Router (Trout.Resource methods) h out where
   route proxy =
-    routeMethod (Proxy :: Proxy (Trout.Method m r))
+    route (Proxy :: Proxy methods)
 
 
 router

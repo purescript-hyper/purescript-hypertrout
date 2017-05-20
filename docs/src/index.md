@@ -20,7 +20,7 @@ declaring the data type `Home`, and the structure of our site:
 ``` {.haskell language=purescript include=docs/src/Site1.purs snippet=routing-type}
 ```
 
-`Resource (Get Home) HTML` is a routing type with only one resource,
+`Resource (Get Home HTML)` is a routing type with only one resource,
 responding to HTTP GET requests, rendering a `Home` value as HTML. So
 where does the `Home` value come from? We provide it using a *handler*.
 A handler for `Site1` would be some value of the following type:
@@ -149,7 +149,7 @@ handlers for different resources.
 
 ## Content Negotiation
 
-By specifying alternative content types for a resource, Hyper can choose
+By specifying alternative content types for a method, Hyper can choose
 a response and content type based on the request `Accept` header. This
 is called *content negotiation*. Instead of specifying a single type,
 like `HTML` or `JSON`, we provide alternatives using `:<|>`. All content

@@ -21,7 +21,7 @@ import Type.Trout.Method (Get)
 
 data Greeting = Greeting String
 
-type Site = Resource (Get Greeting) HTML
+type Site = Resource (Get Greeting HTML)
 
 instance encodeHTMLGreeting :: EncodeHTML Greeting where
   encodeHTML (Greeting g) = p (text g)
