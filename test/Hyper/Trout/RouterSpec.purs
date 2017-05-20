@@ -58,7 +58,7 @@ about = do
   :*> closeHeaders
   :*> respond "This is a test."
 
-search :: forall m. Monad m => Maybe String -> m (Maybe User)
+search :: forall f m. Functor f => Monad m => f String -> m (f User)
 search q = pure $ User <<< UserID <$> q
 
 spec :: forall e. Spec e Unit
@@ -70,6 +70,7 @@ spec =
           home
           :<|> userHandlers
           :<|> wiki
+          :<|> search
           :<|> search
           :<|> about
 
@@ -130,6 +131,10 @@ spec =
       it "matches QueryParam route" do
         conn <- makeRequest GET "/search?q=bunny"
         testStringBody conn `shouldEqual` "{\"userId\":\"bunny\"}"
+
+      it "matches QueryParams route" do
+        conn <- makeRequest GET "/search-many?q=bugs&q=bunny"
+        testStringBody conn `shouldEqual` "[{\"userId\":\"bugs\"},{\"userId\":\"bunny\"}]"
 
       it "matches Raw route" do
         conn <- makeRequest GET "/about"

@@ -8,7 +8,7 @@ import Data.String (trim)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource, QueryParam)
+import Type.Trout (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource, QueryParam, QueryParams)
 import Type.Trout.ContentType.HTML (HTML, class EncodeHTML)
 import Type.Trout.ContentType.JSON (JSON)
 import Type.Trout.Method (Get, Post)
@@ -58,6 +58,8 @@ type TestSite =
   :<|> "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage HTML)
   -- query string parameters
   :<|> "search" :/ QueryParam "q" String :> Resource (Get (Maybe User) JSON)
+  -- many query string parameters
+  :<|> "search-many" :/ QueryParams "q" String :> Resource (Get (Array User) JSON)
   -- raw middleware
   :<|> "about" :/ Raw "GET"
 
