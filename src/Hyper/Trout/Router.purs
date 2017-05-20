@@ -132,7 +132,8 @@ instance routerQueryParam :: ( IsSymbol k
                              )
                           => Router (QueryParam k t :> e) (Maybe t -> h) out where
   route _ ctx r =
-    let v = join $ lookup (reflectSymbol (SProxy :: SProxy k)) ctx.query in
+    let k = reflectSymbol (SProxy :: SProxy k)
+        v = map (fromMaybe "") $ lookup k $ ctx.query in
     case fromPathPiece <$> v of
       Nothing -> go Nothing
       Just (Right v') -> go (Just v')

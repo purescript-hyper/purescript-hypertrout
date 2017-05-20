@@ -132,9 +132,17 @@ spec =
         conn <- makeRequest GET "/search?q=bunny"
         testStringBody conn `shouldEqual` "{\"userId\":\"bunny\"}"
 
+      it "matches QueryParam route with empty value" do
+        conn <- makeRequest GET "/search?q"
+        testStringBody conn `shouldEqual` "{\"userId\":\"\"}"
+
       it "matches QueryParams route" do
         conn <- makeRequest GET "/search-many?q=bugs&q=bunny"
         testStringBody conn `shouldEqual` "[{\"userId\":\"bugs\"},{\"userId\":\"bunny\"}]"
+
+      it "matches QueryParams route with empty value" do
+        conn <- makeRequest GET "/search-many?q&q=bunny"
+        testStringBody conn `shouldEqual` "[{\"userId\":\"\"},{\"userId\":\"bunny\"}]"
 
       it "matches Raw route" do
         conn <- makeRequest GET "/about"
