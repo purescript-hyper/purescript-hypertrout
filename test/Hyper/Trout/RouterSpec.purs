@@ -58,6 +58,9 @@ about = do
   :*> closeHeaders
   :*> respond "This is a test."
 
+search :: forall f m. Functor f => Monad m => f String -> m (f User)
+search q = pure $ User <<< UserID <$> q
+
 spec :: forall e. Spec e Unit
 spec =
   describe "Hyper.Routing.Router" do
@@ -67,6 +70,8 @@ spec =
           home
           :<|> userHandlers
           :<|> wiki
+          :<|> search
+          :<|> search
           :<|> about
 
         onRoutingError status msg = do
@@ -107,6 +112,10 @@ spec =
         conn <- makeRequest GET "/users/owi/profile"
         testStringBody conn `shouldEqual` "{\"userId\":\"owi\"}"
 
+      it "ignores extraneous query string parameters" do
+        conn <- makeRequest GET "/users/owi/profile?bugs=bunny"
+        testStringBody conn `shouldEqual` "{\"userId\":\"owi\"}"
+
       it "supports arrays of JSON values" do
         conn <- makeRequest GET "/users/owi/friends"
         testStringBody conn `shouldEqual` "[{\"userId\":\"foo\"},{\"userId\":\"bar\"}]"
@@ -118,6 +127,30 @@ spec =
       it "matches CaptureAll route" do
         conn <- makeRequest GET "/wiki/foo/bar/baz.txt"
         testStringBody conn `shouldEqual` "Viewing page: foo&#x2F;bar&#x2F;baz.txt"
+
+      it "matches QueryParam route" do
+        conn <- makeRequest GET "/search?q=bunny"
+        testStringBody conn `shouldEqual` "{\"userId\":\"bunny\"}"
+
+      it "matches QueryParam route with empty value" do
+        conn <- makeRequest GET "/search?q"
+        testStringBody conn `shouldEqual` "{\"userId\":\"\"}"
+
+      it "matches QueryParam route with missing key" do
+        conn <- makeRequest GET "/search?r=bunny"
+        testStringBody conn `shouldEqual` "null"
+
+      it "matches QueryParams route" do
+        conn <- makeRequest GET "/search-many?q=bugs&q=bunny"
+        testStringBody conn `shouldEqual` "[{\"userId\":\"bugs\"},{\"userId\":\"bunny\"}]"
+
+      it "matches QueryParams route with empty value" do
+        conn <- makeRequest GET "/search-many?q&q=bunny"
+        testStringBody conn `shouldEqual` "[{\"userId\":\"\"},{\"userId\":\"bunny\"}]"
+
+      it "matches QueryParams route with missing key" do
+        conn <- makeRequest GET "/search-many?p&q=bunny"
+        testStringBody conn `shouldEqual` "[{\"userId\":\"bunny\"}]"
 
       it "matches Raw route" do
         conn <- makeRequest GET "/about"

@@ -13,18 +13,18 @@ import Control.IxMonad (ibind, (:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Data.Array (elem, filter, null, uncons)
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Eq (genericEq)
 import Data.Generic.Rep.Show (genericShow)
 import Data.HTTP.Method (CustomMethod, Method)
-import Data.Maybe (Maybe(..))
+import Data.Lazy (force)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.MediaType.Common (textPlain)
 import Data.StrMap (StrMap)
-import Data.String (Pattern(..), split)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Data.Traversable (traverse)
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst, lookup, snd)
 import Hyper.Conn (Conn)
 import Hyper.ContentNegotiation (AcceptHeader, NegotiationResult(..), negotiateContent, parseAcceptHeader)
 import Hyper.Middleware (Middleware, lift')
@@ -32,13 +32,14 @@ import Hyper.Request (class Request, getRequestData)
 import Hyper.Response (class Response, class ResponseWritable, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
 import Hyper.Status (Status, statusBadRequest, statusMethodNotAllowed, statusNotAcceptable, statusNotFound, statusOK)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:<|>), type (:>), Capture, CaptureAll, Lit, Raw, (:<|>))
+import Type.Trout (type (:<|>), type (:>), Capture, CaptureAll, Lit, QueryParam, QueryParams, Raw, (:<|>))
 import Type.Trout.ContentType (class AllMimeRender, allMimeRender)
 import Type.Trout.PathPiece (class FromPathPiece, fromPathPiece)
 
 type Method' = Either Method CustomMethod
 
 type RoutingContext = { path :: Array String
+                      , query :: Array (Tuple String (Maybe String))
                       , method :: Method'
                       }
 
@@ -123,6 +124,39 @@ instance routerCaptureAll :: ( Router e h out
                                         , message: Just err
                                         })
       Right xs -> route (Proxy :: Proxy e) ctx { path = [] } (r xs)
+
+
+instance routerQueryParam :: ( IsSymbol k
+                             , Router e h out
+                             , FromPathPiece t
+                             )
+                          => Router (QueryParam k t :> e) (Maybe t -> h) out where
+  route _ ctx r =
+    let k = reflectSymbol (SProxy :: SProxy k)
+        v = map (fromMaybe "") $ lookup k $ ctx.query in
+    case fromPathPiece <$> v of
+      Nothing -> go Nothing
+      Just (Right v') -> go (Just v')
+      Just (Left err) -> throwError (HTTPError { status: statusBadRequest
+                                               , message: Just err
+                                               })
+    where go = route (Proxy :: Proxy e) ctx <<< r
+
+
+instance routerQueryParams :: ( IsSymbol k
+                              , Router e h out
+                              , FromPathPiece t
+                              )
+                           => Router (QueryParams k t :> e) (Array t -> h) out where
+  route _ ctx r =
+    let k = reflectSymbol (SProxy :: SProxy k)
+        v = map (fromMaybe "" <<< snd) $ filter ((==) k <<< fst) $ ctx.query in
+    case traverse fromPathPiece v of
+      Right v' -> go v'
+      Left err -> throwError (HTTPError { status: statusBadRequest
+                                        , message: Just err
+                                        })
+    where go = route (Proxy :: Proxy e) ctx <<< r
 
 
 routeEndpoint :: forall e r method
@@ -274,9 +308,10 @@ router site handler onRoutingError = do
   -- Then, if successful, run the handler, possibly also generating an HTTPError.
   -- # either catch runHandler
   where
-    splitUrl = filter ((/=) "") <<< split (Pattern "/")
-    context { url, method } =
-      { path: splitUrl url
+    context { parsedUrl, method } =
+      let parsedUrl' = force parsedUrl in
+      { path: parsedUrl'.path
+      , query: either (const []) id parsedUrl'.query
       , method: method
       }
     catch (HTTPError { status, message }) =
