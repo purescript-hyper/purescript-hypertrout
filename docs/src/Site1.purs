@@ -25,8 +25,8 @@ type Site1 = Resource (Get Home HTML)
 -- end snippet routing-type
 
 -- start snippet handler
-home :: forall m. Applicative m => m Home
-home = pure Home
+home :: forall m. Applicative m => {"GET" :: m Home}
+home = {"GET": pure Home}
 -- end snippet handler
 
 -- start snippet encoding

@@ -16,7 +16,7 @@ import Node.HTTP (HTTP)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:<|>), Resource, (:<|>))
+import Type.Trout (type (:<|>), type (:=), Resource)
 import Type.Trout.ContentType.HTML (class EncodeHTML, HTML)
 import Type.Trout.Method (Get, Delete)
 import Prelude hiding (div)
@@ -25,14 +25,14 @@ newtype User = User { name :: String }
 
 -- start snippet routing-type
 type MultiMethodExample =
-  Resource (Get User HTML :<|> Delete User HTML)
+  "user" := Resource (Get User HTML :<|> Delete User HTML)
 -- end snippet routing-type
 
 site :: Proxy MultiMethodExample
 site = Proxy
 
-getUsers :: forall m. Monad m => ExceptT RoutingError m User
-getUsers =
+getUser :: forall m. Monad m => ExceptT RoutingError m User
+getUser =
   pure (User { name: "An existing user." })
 
 deleteUser :: forall m. Monad m => ExceptT RoutingError m User
@@ -47,10 +47,16 @@ instance encodeHTMLUser :: EncodeHTML User where
 
 main :: forall e. Eff (http :: HTTP, console :: CONSOLE, buffer :: BUFFER | e) Unit
 main =
-  let site3Router =
-        -- start snippet router
-        router site (getUsers :<|> deleteUser) onRoutingError
-        -- end snippet router
+  let
+      -- start snippet resources
+      resources =
+        { user: { "GET": getUser
+                , "DELETE": deleteUser
+                }
+        }
+      -- end snippet resources
+
+      site3Router = router site resources onRoutingError
 
       onRoutingError status msg =
         writeStatus status

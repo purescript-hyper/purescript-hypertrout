@@ -22,14 +22,26 @@ declaring the data type `Home`, and the structure of our site:
 
 `Resource (Get Home HTML)` is a routing type with only one resource,
 responding to HTTP GET requests, rendering a `Home` value as HTML. So
-where does the `Home` value come from? We provide it using a *handler*.
-A handler for `Site1` would be some value of the following type:
+where does the `Home` value come from? We provide it using a *handler* inside
+a resource record. A handler for `Site1` would be some value of the following
+type:
 
 ``` {.haskell}
 forall m. Monad m => ExceptT RoutingError m Home
 ```
 
-We can construct such a value using `pure` and a `Home` value:
+The resource record has fields for each supported HTTP method, with values
+being the corresponding handlers. A resource record type, supporting HTTP GET
+and POST, could have the following type:
+
+``` {.haskell}
+forall m. Monad m => { "GET" :: ExceptT RoutingError m SomeType
+                     , "POST" :: ExceptT RoutingError m SomeType
+                     }
+```
+
+We can construct a resource record for the `Site1` routing type using `pure`
+and a `Home` value:
 
 ``` {.haskell language=purescript include=docs/src/Site1.purs snippet=handler}
 ```
@@ -86,6 +98,11 @@ Let's go through the new constructs used:
 
 -   `:<|>` is a type operator that separates *alternatives*. A router
     for this type will try each route in order until one matches.
+-   `:=` names a route, where the left-hand argument is a Symbol, the name,
+    and the right-hand argument is a routing type. Named routes are combined
+    with `:<|>`, as explained in the previous point. Named routes can be
+    nested to create a structure of arbitrary depth, a practice useful for
+    grouping related resources.
 -   `:/` separates a literal path segment and the rest of the routing
     type.
 -   `Capture` takes a descriptive string and a type. It takes the next
@@ -95,10 +112,9 @@ Let's go through the new constructs used:
 -   `:>` separates a routing type modifier, like `Capture`, and the rest
     of the routing type.
 
-We define handlers for our resource methods as regular functions on the
-specified data types, returning `ExceptT RoutingError m a` values, where
-`m` is the monad of our middleware, and `a` is the type to render for
-the resource.
+We define a resource record using regular functions on the specified data
+types, returning `ExceptT RoutingError m a` values, where `m` is the monad of
+our middleware, and `a` is the type to render for the resource and method.
 
 ``` {.haskell include=docs/src/Site2.purs snippet=handlers}
 ```
@@ -110,13 +126,12 @@ between routes in a type-safe manner.
 ``` {.haskell include=docs/src/Site2.purs snippet=encoding}
 ```
 
-The pattern match on the value returned by `linksTo` must match the
-structure of the routing type. We use `:<|>` to pattern match on links.
-Each matched link will have a type based on the corresponding resource.
-`getUser` in the previous code has type `Int -> URI`, while `allUsers`
-has no captures and thus has type `URI`.
+The record destructuring on the value returned by `linksTo` extracts the
+correct link, based on the names from the routing type. Each link will have a
+type based on the corresponding resource. `user` in the previous code has
+type `Int -> URI`, while `users` has no captures and thus has type `URI`.
 
-We are still missing `getUsers`, our source of User values. In a real
+We are still missing `getUsers`, our source of `User` values. In a real
 application it would probably be a database query, but for this example
 we simply hard-code some famous users of proper instruments.
 
@@ -128,9 +143,8 @@ Almost done! We just need to create the router, and start a server.
 ``` {.haskell include=docs/src/Site2.purs snippet=main}
 ```
 
-Notice how the composition of handler functions, using the value-level
-operator `:<|>`, matches the structure of our routing type. If we fail
-to match the type we get a compile error.
+Notice how the `resources` record matches the names and structure of our
+routing type. If we fail to match the type we get a compile error.
 
 ## Multi-Method Resources
 
@@ -142,10 +156,12 @@ multiple methods.
 ``` {.haskell include=docs/src/MultiMethodExample.purs snippet=routing-type}
 ```
 
-`MultiMethodExample` is a routing type with a *single resource*, which
-has *multiple resource methods*. Handlers for the resource methods needs
-to be separated by the value-level operator `:<|>`, just as with
-handlers for different resources.
+`MultiMethodExample` is a routing type with a *single resource*, named `user`,
+which has *multiple resource methods*. Handlers for the resource methods are
+provided as a record value, with field names matching the HTTP methods:
+
+``` {.haskell include=docs/src/MultiMethodExample.purs snippet=resources}
+```
 
 ## Content Negotiation
 

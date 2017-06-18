@@ -18,7 +18,7 @@ import Node.HTTP (HTTP)
 import Text.Smolder.HTML (div, h1, li, p, ul)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:/), type (:<|>), type (:>), Capture, Resource, (:<|>))
+import Type.Trout (type (:/), type (:<|>), type (:=), type (:>), Capture, Resource)
 import Type.Trout.ContentType.HTML (class EncodeHTML, HTML, linkTo)
 import Type.Trout.Links (linksTo)
 import Type.Trout.Method (Get)
@@ -32,43 +32,43 @@ data AllUsers = AllUsers (Array User)
 newtype User = User { id :: Int, name :: String }
 
 type Site2 =
-  Resource (Get Home HTML)
-  :<|> "users" :/ Resource (Get AllUsers HTML)
-  :<|> "users" :/ Capture "user-id" Int :> Resource (Get User HTML)
+       "home"  := Resource (Get Home HTML)
+  :<|> "users" := "users" :/ Resource (Get AllUsers HTML)
+  :<|> "user"  := "users" :/ Capture "user-id" Int
+                          :> Resource (Get User HTML)
 
 site2 :: Proxy Site2
 site2 = Proxy
 -- end snippet resources-and-type
 
 -- start snippet handlers
-home :: forall m. Monad m => ExceptT RoutingError m Home
-home = pure Home
+homeResource :: forall m. Monad m => {"GET" :: ExceptT RoutingError m Home}
+homeResource = {"GET": pure Home}
 
-allUsers :: forall m. Monad m => ExceptT RoutingError m AllUsers
-allUsers = AllUsers <$> getUsers
+usersResource :: forall m. Monad m => {"GET" :: ExceptT RoutingError m AllUsers}
+usersResource = {"GET": AllUsers <$> getUsers}
 
-getUser :: forall m. Monad m => Int -> ExceptT RoutingError m User
-getUser id' =
-  find userWithId <$> getUsers >>=
-  case _ of
-    Just user -> pure user
-    Nothing ->
-      throwError (HTTPError { status: statusNotFound
-                            , message: Just "User not found."
-                            })
-  where
-    userWithId (User u) = u.id == id'
+userResource :: forall m. Monad m => Int -> {"GET" :: ExceptT RoutingError m User}
+userResource id' =
+  {"GET":
+   find (\(User u) -> u.id == id') <$> getUsers >>=
+   case _ of
+       Just user -> pure user
+       Nothing ->
+       throwError (HTTPError { status: statusNotFound
+                               , message: Just "User not found."
+                               })
+  }
 -- end snippet handlers
 
 -- start snippet encoding
 instance encodeHTMLHome :: EncodeHTML Home where
   encodeHTML Home =
-    case linksTo site2 of
-      _ :<|> allUsers' :<|> _ ->
-        p do
-          text "Welcome to my site! Go check out my "
-          linkTo allUsers' (text "Users")
-          text "."
+    let {users} = linksTo site2
+    in p do
+      text "Welcome to my site! Go check out my "
+      linkTo users (text "Users")
+      text "."
 
 instance encodeHTMLAllUsers :: EncodeHTML AllUsers where
   encodeHTML (AllUsers users) =
@@ -77,9 +77,8 @@ instance encodeHTMLAllUsers :: EncodeHTML AllUsers where
       ul (traverse_ linkToUser users)
     where
       linkToUser (User u) =
-        case linksTo site2 of
-          _ :<|> _ :<|> getUser' ->
-            li (linkTo (getUser' u.id) (text u.name))
+        let {user} = linksTo site2
+        in li (linkTo (user u.id) (text u.name))
 
 instance encodeHTMLUser :: EncodeHTML User where
   encodeHTML (User { name }) =
@@ -100,8 +99,13 @@ getUsers =
 -- start snippet main
 main :: forall e. Eff (http :: HTTP, console :: CONSOLE, buffer :: BUFFER | e) Unit
 main =
-  let otherSiteRouter =
-        router site2 (home :<|> allUsers :<|> getUser) onRoutingError
+  let resources = { home: homeResource
+                  , users: usersResource
+                  , user: userResource
+                  }
+
+      otherSiteRouter =
+        router site2 resources onRoutingError
 
       onRoutingError status msg =
         writeStatus status

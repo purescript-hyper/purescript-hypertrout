@@ -61,11 +61,15 @@
 <div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
 
 <span class="kw">type</span> <span class="dt">Site1</span> <span class="fu">=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)</code></pre></div>
-<p><code>Resource (Get Home HTML)</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em>. A handler for <code>Site1</code> would be some value of the following type:</p>
+<p><code>Resource (Get Home HTML)</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em> inside a resource record. A handler for <code>Site1</code> would be some value of the following type:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span></code></pre></div>
-<p>We can construct such a value using <code>pure</code> and a <code>Home</code> value:</p>
-<div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">home ::</span> forall m<span class="fu">.</span> <span class="dt">Applicative</span> m <span class="ot">=&gt;</span> m <span class="dt">Home</span>
-home <span class="fu">=</span> pure <span class="dt">Home</span></code></pre></div>
+<p>The resource record has fields for each supported HTTP method, with values being the corresponding handlers. A resource record type, supporting HTTP GET and POST, could have the following type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> { <span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">SomeType</span>
+                     , <span class="st">&quot;POST&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">SomeType</span>
+                     }</code></pre></div>
+<p>We can construct a resource record for the <code>Site1</code> routing type using <code>pure</code> and a <code>Home</code> value:</p>
+<div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">home ::</span> forall m<span class="fu">.</span> <span class="dt">Applicative</span> m <span class="ot">=&gt;</span> {<span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> m <span class="dt">Home</span>}
+home <span class="fu">=</span> {<span class="st">&quot;GET&quot;</span><span class="fu">:</span> pure <span class="dt">Home</span>}</code></pre></div>
 <p>Nice! But what comes out on the other end? We need something that renders the <code>Home</code> value as HTML. By providing an instance of <code>EncodeHTML</code> for <code>Home</code>, we instruct the resource how to render.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span><span class="ot"> encodeHTMLHome ::</span> <span class="dt">EncodeHTML</span> <span class="dt">Home</span> <span class="kw">where</span>
   encodeHTML <span class="dt">Home</span> <span class="fu">=</span>
@@ -99,46 +103,47 @@ main <span class="fu">=</span>
 <span class="kw">newtype</span> <span class="dt">User</span> <span class="fu">=</span> <span class="dt">User</span> {<span class="ot"> id ::</span> <span class="dt">Int</span>,<span class="ot"> name ::</span> <span class="dt">String</span> }
 
 <span class="kw">type</span> <span class="dt">Site2</span> <span class="fu">=</span>
-  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span> <span class="dt">HTML</span>)
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span>)
+       <span class="st">&quot;home&quot;</span>  <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:=</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;user&quot;</span>  <span class="fu">:=</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span>
+                          <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span>)
 
 <span class="ot">site2 ::</span> <span class="dt">Proxy</span> <span class="dt">Site2</span>
 site2 <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
 <p>Let’s go through the new constructs used:</p>
 <ul>
 <li><code>:&lt;|&gt;</code> is a type operator that separates <em>alternatives</em>. A router for this type will try each route in order until one matches.</li>
+<li><code>:=</code> names a route, where the left-hand argument is a Symbol, the name, and the right-hand argument is a routing type. Named routes are combined with <code>:&lt;|&gt;</code>, as explained in the previous point. Named routes can be nested to create a structure of arbitrary depth, a practice useful for grouping related resources.</li>
 <li><code>:/</code> separates a literal path segment and the rest of the routing type.</li>
 <li><code>Capture</code> takes a descriptive string and a type. It takes the next available path segment and tries to convert it to the given type. Each capture in a routing type corresponds to an argument in the handler function.</li>
 <li><code>:&gt;</code> separates a routing type modifier, like <code>Capture</code>, and the rest of the routing type.</li>
 </ul>
-<p>We define handlers for our resource methods as regular functions on the specified data types, returning <code>ExceptT RoutingError m a</code> values, where <code>m</code> is the monad of our middleware, and <code>a</code> is the type to render for the resource.</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">home ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span>
-home <span class="fu">=</span> pure <span class="dt">Home</span>
+<p>We define a resource record using regular functions on the specified data types, returning <code>ExceptT RoutingError m a</code> values, where <code>m</code> is the monad of our middleware, and <code>a</code> is the type to render for the resource and method.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">homeResource ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> {<span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span>}
+homeResource <span class="fu">=</span> {<span class="st">&quot;GET&quot;</span><span class="fu">:</span> pure <span class="dt">Home</span>}
 
-<span class="ot">allUsers ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">AllUsers</span>
-allUsers <span class="fu">=</span> <span class="dt">AllUsers</span> <span class="fu">&lt;$&gt;</span> getUsers
+<span class="ot">usersResource ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> {<span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">AllUsers</span>}
+usersResource <span class="fu">=</span> {<span class="st">&quot;GET&quot;</span><span class="fu">:</span> <span class="dt">AllUsers</span> <span class="fu">&lt;$&gt;</span> getUsers}
 
-<span class="ot">getUser ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">User</span>
-getUser id&#39; <span class="fu">=</span>
-  find userWithId <span class="fu">&lt;$&gt;</span> getUsers <span class="fu">&gt;&gt;=</span>
-  <span class="kw">case</span> _ <span class="kw">of</span>
-    <span class="dt">Just</span> user <span class="ot">-&gt;</span> pure user
-    <span class="dt">Nothing</span> <span class="ot">-&gt;</span>
-      throwError (<span class="dt">HTTPError</span> { status<span class="fu">:</span> statusNotFound
-                            , message<span class="fu">:</span> <span class="dt">Just</span> <span class="st">&quot;User not found.&quot;</span>
-                            })
-  <span class="kw">where</span>
-    userWithId (<span class="dt">User</span> u) <span class="fu">=</span> u<span class="fu">.</span>id <span class="fu">==</span> id&#39;</code></pre></div>
+<span class="ot">userResource ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> {<span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">User</span>}
+userResource id&#39; <span class="fu">=</span>
+  {<span class="st">&quot;GET&quot;</span><span class="fu">:</span>
+   find (\(<span class="dt">User</span> u) <span class="ot">-&gt;</span> u<span class="fu">.</span>id <span class="fu">==</span> id&#39;) <span class="fu">&lt;$&gt;</span> getUsers <span class="fu">&gt;&gt;=</span>
+   <span class="kw">case</span> _ <span class="kw">of</span>
+       <span class="dt">Just</span> user <span class="ot">-&gt;</span> pure user
+       <span class="dt">Nothing</span> <span class="ot">-&gt;</span>
+       throwError (<span class="dt">HTTPError</span> { status<span class="fu">:</span> statusNotFound
+                               , message<span class="fu">:</span> <span class="dt">Just</span> <span class="st">&quot;User not found.&quot;</span>
+                               })
+  }</code></pre></div>
 <p>As in the single-resource example, we want to render as HTML. Let’s create instances for our data types. Notice how we can create links between routes in a type-safe manner.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span><span class="ot"> encodeHTMLHome ::</span> <span class="dt">EncodeHTML</span> <span class="dt">Home</span> <span class="kw">where</span>
   encodeHTML <span class="dt">Home</span> <span class="fu">=</span>
-    <span class="kw">case</span> linksTo site2 <span class="kw">of</span>
-      _ <span class="fu">:&lt;|&gt;</span> allUsers&#39; <span class="fu">:&lt;|&gt;</span> _ <span class="ot">-&gt;</span>
-        p <span class="kw">do</span>
-          text <span class="st">&quot;Welcome to my site! Go check out my &quot;</span>
-          linkTo allUsers&#39; (text <span class="st">&quot;Users&quot;</span>)
-          text <span class="st">&quot;.&quot;</span>
+    <span class="kw">let</span> {users} <span class="fu">=</span> linksTo site2
+    <span class="kw">in</span> p <span class="kw">do</span>
+      text <span class="st">&quot;Welcome to my site! Go check out my &quot;</span>
+      linkTo users (text <span class="st">&quot;Users&quot;</span>)
+      text <span class="st">&quot;.&quot;</span>
 
 <span class="kw">instance</span><span class="ot"> encodeHTMLAllUsers ::</span> <span class="dt">EncodeHTML</span> <span class="dt">AllUsers</span> <span class="kw">where</span>
   encodeHTML (<span class="dt">AllUsers</span> users) <span class="fu">=</span>
@@ -147,15 +152,14 @@ getUser id&#39; <span class="fu">=</span>
       ul (traverse_ linkToUser users)
     <span class="kw">where</span>
       linkToUser (<span class="dt">User</span> u) <span class="fu">=</span>
-        <span class="kw">case</span> linksTo site2 <span class="kw">of</span>
-          _ <span class="fu">:&lt;|&gt;</span> _ <span class="fu">:&lt;|&gt;</span> getUser&#39; <span class="ot">-&gt;</span>
-            li (linkTo (getUser&#39; u<span class="fu">.</span>id) (text u<span class="fu">.</span>name))
+        <span class="kw">let</span> {user} <span class="fu">=</span> linksTo site2
+        <span class="kw">in</span> li (linkTo (user u<span class="fu">.</span>id) (text u<span class="fu">.</span>name))
 
 <span class="kw">instance</span><span class="ot"> encodeHTMLUser ::</span> <span class="dt">EncodeHTML</span> <span class="dt">User</span> <span class="kw">where</span>
   encodeHTML (<span class="dt">User</span> { name }) <span class="fu">=</span>
     h1 (text name)</code></pre></div>
-<p>The pattern match on the value returned by <code>linksTo</code> must match the structure of the routing type. We use <code>:&lt;|&gt;</code> to pattern match on links. Each matched link will have a type based on the corresponding resource. <code>getUser</code> in the previous code has type <code>Int -&gt; URI</code>, while <code>allUsers</code> has no captures and thus has type <code>URI</code>.</p>
-<p>We are still missing <code>getUsers</code>, our source of User values. In a real application it would probably be a database query, but for this example we simply hard-code some famous users of proper instruments.</p>
+<p>The record destructuring on the value returned by <code>linksTo</code> extracts the correct link, based on the names from the routing type. Each link will have a type based on the corresponding resource. <code>user</code> in the previous code has type <code>Int -&gt; URI</code>, while <code>users</code> has no captures and thus has type <code>URI</code>.</p>
+<p>We are still missing <code>getUsers</code>, our source of <code>User</code> values. In a real application it would probably be a database query, but for this example we simply hard-code some famous users of proper instruments.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getUsers ::</span> forall m<span class="fu">.</span> <span class="dt">Applicative</span> m <span class="ot">=&gt;</span> m (<span class="dt">Array</span> <span class="dt">User</span>)
 getUsers <span class="fu">=</span>
   pure
@@ -167,8 +171,13 @@ getUsers <span class="fu">=</span>
 <p>Almost done! We just need to create the router, and start a server.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> forall e<span class="fu">.</span> <span class="dt">Eff</span> (<span class="ot">http ::</span> <span class="dt">HTTP</span>,<span class="ot"> console ::</span> <span class="dt">CONSOLE</span>,<span class="ot"> buffer ::</span> <span class="dt">BUFFER</span> <span class="fu">|</span> e) <span class="dt">Unit</span>
 main <span class="fu">=</span>
-  <span class="kw">let</span> otherSiteRouter <span class="fu">=</span>
-        router site2 (home <span class="fu">:&lt;|&gt;</span> allUsers <span class="fu">:&lt;|&gt;</span> getUser) onRoutingError
+  <span class="kw">let</span> resources <span class="fu">=</span> { home<span class="fu">:</span> homeResource
+                  , users<span class="fu">:</span> usersResource
+                  , user<span class="fu">:</span> userResource
+                  }
+
+      otherSiteRouter <span class="fu">=</span>
+        router site2 resources onRoutingError
 
       onRoutingError status msg <span class="fu">=</span>
         writeStatus status
@@ -177,18 +186,24 @@ main <span class="fu">=</span>
         <span class="fu">:*&gt;</span> respond (maybe <span class="st">&quot;&quot;</span> id msg)
 
   <span class="kw">in</span> runServer defaultOptions {} otherSiteRouter</code></pre></div>
-<p>Notice how the composition of handler functions, using the value-level operator <code>:&lt;|&gt;</code>, matches the structure of our routing type. If we fail to match the type we get a compile error.</p>
+<p>Notice how the <code>resources</code> record matches the names and structure of our routing type. If we fail to match the type we get a compile error.</p>
 <h2 id="multi-method-resources">Multi-Method Resources</h2>
 <p>So far we have just used a single method per resource, the <code>Get</code> method. By replacing the single method type with a sequence of alternatives, constructed with the type-level operator <code>:&lt;|&gt;</code>, we get a resource with multiple methods.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">MultiMethodExample</span> <span class="fu">=</span>
-  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">Delete</span> <span class="dt">User</span> <span class="dt">HTML</span>)</code></pre></div>
-<p><code>MultiMethodExample</code> is a routing type with a <em>single resource</em>, which has <em>multiple resource methods</em>. Handlers for the resource methods needs to be separated by the value-level operator <code>:&lt;|&gt;</code>, just as with handlers for different resources.</p>
+  <span class="st">&quot;user&quot;</span> <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">Delete</span> <span class="dt">User</span> <span class="dt">HTML</span>)</code></pre></div>
+<p><code>MultiMethodExample</code> is a routing type with a <em>single resource</em>, named <code>user</code>, which has <em>multiple resource methods</em>. Handlers for the resource methods are provided as a record value, with field names matching the HTTP methods:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">      resources <span class="fu">=</span>
+        { user<span class="fu">:</span> { <span class="st">&quot;GET&quot;</span><span class="fu">:</span> getUser
+                , <span class="st">&quot;DELETE&quot;</span><span class="fu">:</span> deleteUser
+                }
+        }</code></pre></div>
 <h2 id="content-negotiation">Content Negotiation</h2>
 <p>By specifying alternative content types for a method, Hyper can choose a response and content type based on the request <code>Accept</code> header. This is called <em>content negotiation</em>. Instead of specifying a single type, like <code>HTML</code> or <code>JSON</code>, we provide alternatives using <code>:&lt;|&gt;</code>. All content types must have <code>MimeRender</code> instances for the response body type.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Site3</span> <span class="fu">=</span>
-  <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span> (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>))
-  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span> <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>))</code></pre></div>
+       <span class="st">&quot;home&quot;</span>  <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;users&quot;</span> <span class="fu">:=</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">AllUsers</span> (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>))
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;user&quot;</span>  <span class="fu">:=</span> <span class="st">&quot;users&quot;</span> <span class="fu">:/</span> <span class="dt">Capture</span> <span class="st">&quot;user-id&quot;</span> <span class="dt">Int</span>
+                          <span class="fu">:&gt;</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> (<span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">JSON</span>))</code></pre></div>
 <p>By making requests to this site, using <code>Accept</code> headers, we can see how the router chooses the matching content type (output formatted and shortened for readability).</p>
 <div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="op">&lt;</span><span class="ex">strong</span><span class="op">&gt;</span>curl -H <span class="st">&#39;Accept: application/json&#39;</span> http://localhost:3000/users<span class="op">&lt;</span>/strong<span class="op">&gt;</span>
 <span class="bu">[</span>
@@ -215,7 +230,7 @@ main <span class="fu">=</span>
 <footer>
   <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>
   &mdash;
-  d8b9997
+  ad87a05
   &mdash;
   &copy; Copyright 2016-2017 Oskar Wickström
   &mdash;
