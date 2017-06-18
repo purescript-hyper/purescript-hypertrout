@@ -20,59 +20,65 @@ import Hyper.Trout.TestSite (Home(..), User(..), UserID(..), WikiPage(..), testS
 import Hyper.Trout.Router (router)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
-import Type.Trout ((:<|>))
 
-home :: forall m. Monad m => m Home
-home = pure Home
+homeResource :: forall m. Monad m => {"GET" :: m Home}
+homeResource = {"GET": pure Home}
 
-profile :: forall m. Monad m => UserID -> m User
-profile userId = pure (User userId)
+profileResource :: forall m. Monad m => UserID -> {"GET" :: m User}
+profileResource userId = {"GET": pure (User userId)}
 
-friends :: forall m. Monad m => UserID -> m (Array User)
-friends (UserID uid) =
-  pure [ User (UserID "foo")
-       , User (UserID "bar")
-       ]
+friendsResource
+  :: forall m
+   . Monad m
+  => UserID
+  -> { "GET" :: m (Array User)
+     , "POST" :: m User
+     }
+friendsResource (UserID uid) =
+  { "GET": pure [ User (UserID "foo")
+               , User (UserID "bar")
+               ]
+  -- TODO: add ReqBody when supported
+  , "POST": pure (User (UserID "new-user"))
+  }
 
--- TODO: add ReqBody when supported
-saveFriend :: forall m. Monad m => UserID -> m User
-saveFriend (UserID uid) =
-  pure (User (UserID "new-user"))
+wikiResource :: forall m. Monad m => Array String -> {"GET" :: m WikiPage}
+wikiResource segments = {"GET": pure (WikiPage (joinWith "/" segments))}
 
-wiki :: forall m. Monad m => Array String -> m WikiPage
-wiki segments = pure (WikiPage (joinWith "/" segments))
-
-about :: forall m req res c r
-          . Monad m
-         => Request req m
-         => Response res m r
-         => ResponseWritable r m String
-         => Middleware
-            m
-            (Conn req (res StatusLineOpen) c)
-            (Conn req (res ResponseEnded) c)
-            Unit
-about = do
+aboutMiddleware
+  :: forall m req res c r
+   . Monad m
+  => Request req m
+  => Response res m r
+  => ResponseWritable r m String
+  => Middleware
+     m
+     (Conn req (res StatusLineOpen) c)
+     (Conn req (res ResponseEnded) c)
+     Unit
+aboutMiddleware = do
   writeStatus statusOK
   :*> contentType textPlain
   :*> closeHeaders
   :*> respond "This is a test."
 
-search :: forall f m. Functor f => Monad m => f String -> m (f User)
-search q = pure $ User <<< UserID <$> q
+searchResource :: forall f m. Functor f => Monad m => f String -> {"GET" :: m (f User)}
+searchResource q =
+  {"GET": pure $ User <<< UserID <$> q}
 
 spec :: forall e. Spec e Unit
 spec =
   describe "Hyper.Routing.Router" do
-    let userHandlers userId =
-          profile userId :<|> (friends userId :<|> saveFriend userId)
-        handlers =
-          home
-          :<|> userHandlers
-          :<|> wiki
-          :<|> search
-          :<|> search
-          :<|> about
+    let userResources userId = { profile: profileResource userId
+                               , friends: friendsResource userId
+                               }
+        resources = { home: homeResource
+                    , user: userResources
+                    , wiki: wikiResource
+                    , about: aboutMiddleware
+                    , search: searchResource
+                    , searchMany: searchResource
+                    }
 
         onRoutingError status msg = do
           writeStatus status
@@ -87,7 +93,7 @@ spec =
           , response: TestResponse Nothing [] []
           , components: {}
           }
-          # evalMiddleware (router testSite handlers onRoutingError)
+          # evalMiddleware (router testSite resources onRoutingError)
           # testServer
 
         makeRequest method path =

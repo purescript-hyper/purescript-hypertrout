@@ -8,7 +8,7 @@ import Data.String (trim)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:/), type (:<|>), type (:>), Capture, CaptureAll, Raw, Resource, QueryParam, QueryParams)
+import Type.Trout (type (:/), type (:<|>), type (:=), type (:>), Capture, CaptureAll, Raw, Resource, QueryParam, QueryParams)
 import Type.Trout.ContentType.HTML (HTML, class EncodeHTML)
 import Type.Trout.ContentType.JSON (JSON)
 import Type.Trout.Method (Get, Post)
@@ -45,23 +45,22 @@ data WikiPage = WikiPage String
 instance encodeHTMLWikiPage :: EncodeHTML WikiPage where
   encodeHTML (WikiPage title) = text ("Viewing page: " <> title)
 
-
 type UserResources =
-  "profile" :/ Resource (Get User JSON)
-  :<|> "friends" :/ Resource (Get (Array User) JSON :<|> Post User JSON)
+  "profile" := "profile" :/ Resource (Get User JSON)
+  :<|> "friends" := "friends" :/ Resource (Get (Array User) JSON :<|> Post User JSON)
 
 type TestSite =
-  Resource (Get Home (HTML :<|> JSON))
+  "home" := Resource (Get Home (HTML :<|> JSON))
   -- nested routes with capture
-  :<|> "users" :/ Capture "user-id" UserID :> UserResources
+  :<|> "user" := "users" :/ Capture "user-id" UserID :> UserResources
   -- capture all
-  :<|> "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage HTML)
+  :<|> "wiki" := "wiki" :/ CaptureAll "segments" String :> Resource (Get WikiPage HTML)
   -- query string parameters
-  :<|> "search" :/ QueryParam "q" String :> Resource (Get (Maybe User) JSON)
+  :<|> "search" := "search" :/ QueryParam "q" String :> Resource (Get (Maybe User) JSON)
   -- many query string parameters
-  :<|> "search-many" :/ QueryParams "q" String :> Resource (Get (Array User) JSON)
+  :<|> "searchMany" := "search-many" :/ QueryParams "q" String :> Resource (Get (Array User) JSON)
   -- raw middleware
-  :<|> "about" :/ Raw "GET"
+  :<|> "about" := "about" :/ Raw "GET"
 
 testSite :: Proxy TestSite
 testSite = Proxy

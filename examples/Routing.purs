@@ -18,13 +18,13 @@ import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textHTML)
 import Hyper.Node.Server (defaultOptions, runServer)
 import Hyper.Response (closeHeaders, contentType, respond, writeStatus)
-import Hyper.Trout.Router (RoutingError(..), router)
 import Hyper.Status (statusNotFound)
+import Hyper.Trout.Router (RoutingError(..), router)
 import Node.HTTP (HTTP)
 import Text.Smolder.HTML (h1, li, nav, p, section, ul)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:/), type (:<|>), type (:>), Capture, (:<|>), Resource)
+import Type.Trout (type (:/), type (:<|>), type (:=), type (:>), Capture, Resource)
 import Type.Trout.ContentType.HTML (class EncodeHTML, HTML, linkTo)
 import Type.Trout.ContentType.JSON (JSON)
 import Type.Trout.Links (linksTo)
@@ -46,12 +46,11 @@ instance encodeJsonPost :: EncodeJson Post where
 
 instance encodeHTMLPost :: EncodeHTML Post where
   encodeHTML (Post { id: postId, title}) =
-    case linksTo site of
-      allPostsUri :<|> _ ->
-        section do
-          h1 (text title)
-          p (text "Contents...")
-          nav (linkTo allPostsUri (text "All Posts"))
+    let {posts} = linksTo site
+    in section do
+      h1 (text title)
+      p (text "Contents...")
+      nav (linkTo posts (text "All Posts"))
 
 newtype PostsView = PostsView (Array Post)
 
@@ -62,16 +61,16 @@ instance encodeJsonPostsView :: EncodeJson PostsView where
 
 instance encodeHTMLPostsView :: EncodeHTML PostsView where
   encodeHTML (PostsView posts) =
-    case linksTo site of
-      _ :<|> getPostUri ->
-        let postLink (Post { id: postId, title }) =
-              li (linkTo (getPostUri postId) (text title))
-        in section do
-            h1 (text "Posts")
-            ul (traverse_ postLink posts)
+    let {post} = linksTo site
+        postLink (Post { id: postId, title }) =
+          li (linkTo (post postId) (text title))
+    in section do
+        h1 (text "Posts")
+        ul (traverse_ postLink posts)
 
-type Site = Resource (Get PostsView (HTML :<|> JSON))
-            :<|> "posts" :/ Capture "id" PostID :> Resource (Get Post (HTML :<|> JSON))
+type Site =
+  "posts" := Resource (Get PostsView (HTML :<|> JSON))
+  :<|> "post" := "posts" :/ Capture "id" PostID :> Resource (Get Post (HTML :<|> JSON))
 
 site :: Proxy Site
 site = Proxy
@@ -83,24 +82,31 @@ type AppM e a = ExceptT RoutingError (Aff e) a
 allPosts :: forall e. AppM e (Array Post)
 allPosts = pure (map (\i -> Post { id: i, title: "Post #" <> show i }) (1..10))
 
-postsView :: forall e. AppM e PostsView
-postsView = PostsView <$> allPosts
+postsResource :: forall e. { "GET" :: AppM e PostsView }
+postsResource = { "GET": PostsView <$> allPosts }
 
-viewPost :: forall e. PostID -> AppM e Post
-viewPost postId =
-  find (\(Post p) -> p.id == postId) <$> allPosts >>=
-  case _ of
-    Just post -> pure post
-    -- You can throw 404 Not Found in here as well.
-    Nothing -> throwError (HTTPError { status: statusNotFound
-                                     , message: Just "Post not found."
-                                     })
+postResource :: forall e. PostID -> { "GET" :: AppM e Post }
+postResource postId =
+  { "GET":
+    find (\(Post p) -> p.id == postId) <$> allPosts >>=
+    case _ of
+        Just post -> pure post
+        -- You can throw 404 Not Found in here as well.
+        Nothing -> throwError (HTTPError { status: statusNotFound
+                                        , message: Just "Post not found."
+                                        })
+  }
 
 main :: forall e. Eff (http :: HTTP, console :: CONSOLE, err :: EXCEPTION, avar :: AVAR | e) Unit
 main =
   runServer defaultOptions {} siteRouter
   where
-    siteRouter = router site (postsView :<|> viewPost) onRoutingError
+    siteRouter = router
+                 site
+                 { posts: postsResource
+                 , post: postResource
+                 }
+                 onRoutingError
     onRoutingError status msg = do
       writeStatus status
       :*> contentType textHTML

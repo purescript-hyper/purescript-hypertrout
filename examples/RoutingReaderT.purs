@@ -15,13 +15,13 @@ import Node.HTTP (HTTP)
 import Text.Smolder.HTML (p)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
-import Type.Trout (Resource)
+import Type.Trout (type (:=), Resource)
 import Type.Trout.ContentType.HTML (class EncodeHTML, HTML)
 import Type.Trout.Method (Get)
 
 data Greeting = Greeting String
 
-type Site = Resource (Get Greeting HTML)
+type Site = "greeting" := Resource (Get Greeting HTML)
 
 instance encodeHTMLGreeting :: EncodeHTML Greeting where
   encodeHTML (Greeting g) = p (text g)
@@ -32,12 +32,16 @@ runAppM = flip runReaderT
 site :: Proxy Site
 site = Proxy
 
-greet :: forall m. Monad m => ExceptT RoutingError (ReaderT String m) Greeting
-greet = Greeting <$> ask
+greetingResource
+  :: forall m
+   . Monad m
+  => {"GET" :: ExceptT RoutingError (ReaderT String m) Greeting}
+greetingResource =
+  {"GET": Greeting <$> ask}
 
 main :: forall e. Eff (console :: CONSOLE, http :: HTTP | e) Unit
 main =
-  let app = router site greet onRoutingError
+  let app = router site {"greeting": greetingResource} onRoutingError
 
       onRoutingError status msg =
         writeStatus status

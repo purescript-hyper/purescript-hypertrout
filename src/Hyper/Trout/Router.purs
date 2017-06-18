@@ -9,6 +9,7 @@ import Prelude
 import Data.HTTP.Method as Method
 import Data.StrMap as StrMap
 import Type.Trout as Trout
+import Type.Trout.Record as Record
 import Control.IxMonad (ibind, (:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
@@ -32,7 +33,7 @@ import Hyper.Request (class Request, getRequestData)
 import Hyper.Response (class Response, class ResponseWritable, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
 import Hyper.Status (Status, statusBadRequest, statusMethodNotAllowed, statusNotAcceptable, statusNotFound, statusOK)
 import Type.Proxy (Proxy(..))
-import Type.Trout (type (:<|>), type (:>), Capture, CaptureAll, Lit, QueryParam, QueryParams, Raw, (:<|>))
+import Type.Trout (type (:<|>), type (:=), type (:>), Capture, CaptureAll, QueryParam, QueryParams, Lit, Raw)
 import Type.Trout.ContentType (class AllMimeRender, allMimeRender)
 import Type.Trout.PathPiece (class FromPathPiece, fromPathPiece)
 
@@ -59,19 +60,22 @@ instance showRoutingError :: Show RoutingError where
 class Router e h r | e -> h, e -> r where
   route :: Proxy e -> RoutingContext -> h -> Either RoutingError r
 
-instance routerAltE :: ( Router e1 h1 out
-                       , Router e2 h2 out
-                       )
-                       => Router (e1 :<|> e2) (h1 :<|> h2) out where
-  route _ context (h1 :<|> h2) =
-    case route (Proxy :: Proxy e1) context h1 of
+instance routerAlt :: ( Router t1 h1 out
+                      , Router t2 (Record h2) out
+                      , IsSymbol name
+                      , RowCons name h1 h2 hs
+                      )
+                      => Router (name := t1 :<|> t2) (Record hs) out where
+  route _ context handlers =
+    case route (Proxy :: Proxy t1) context (Record.get name handlers) of
       Left err1 ->
-        case route (Proxy :: Proxy e2) context h2 of
-          -- The Error that's thrown depends on the Errors' HTTP codes.
+        case route (Proxy :: Proxy t2) context (Record.delete name handlers) of
+          -- The Error that's thrown depends on the errors' HTTP codes.
           Left err2 -> throwError (selectError err1 err2)
           Right handler -> pure handler
       Right handler -> pure handler
     where
+      name = SProxy :: SProxy name
       fallbackStatuses = [statusNotFound, statusMethodNotAllowed]
       selectError (HTTPError errL) (HTTPError errR) =
         case Tuple errL.status errR.status of
@@ -80,6 +84,13 @@ instance routerAltE :: ( Router e1 h1 out
             | s1 /= statusNotFound && s2 `elem` fallbackStatuses -> HTTPError errL
             | otherwise -> HTTPError errR
 
+instance routerNamed :: ( Router t h out
+                        , IsSymbol name
+                        , RowCons name h () hs
+                        )
+                        => Router (name := t) (Record hs) out where
+  route _ context handlers =
+    route (Proxy :: Proxy t) context (Record.get (SProxy :: SProxy name) handlers)
 
 instance routerLit :: ( Router e h out
                       , IsSymbol lit
@@ -195,18 +206,72 @@ instance routerMethod :: ( Monad m
                          , ResponseWritable r m b
                          , IsSymbol method
                          , AllMimeRender body ct b
+                         , RowCons method (ExceptT RoutingError m body) hs hs'
                          )
                      => Router
-                        (Trout.Method method body ct)
-                        (ExceptT RoutingError m body)
+                        (Trout.Method method body ct :<|> methods)
+                        (Record hs')
                         (Middleware
                         m
                         { request :: req, response :: (res StatusLineOpen), components :: c}
                         { request :: req, response :: (res ResponseEnded), components :: c}
                         Unit)
   where
-  route proxy context action = do
-    let handler = lift' (runExceptT action) `ibind`
+  route proxy context handlers = do
+    let handler = lift' (runExceptT (Record.get (SProxy :: SProxy method) handlers)) `ibind`
+                  case _ of
+                    Left (HTTPError { status }) -> do
+                      writeStatus status
+                      :*> contentType textPlain
+                      :*> closeHeaders
+                      :*> end
+                    Right body -> do
+                      { headers } <- getRequestData
+                      case getAccept headers of
+                        Left err -> do
+                          writeStatus statusBadRequest
+                          :*> contentType textPlain
+                          :*> closeHeaders
+                          :*> end
+                        Right parsedAccept -> do
+                          case negotiateContent parsedAccept (allMimeRender (Proxy :: Proxy ct) body) of
+                            Match (Tuple ct rendered) -> do
+                              writeStatus statusOK
+                              :*> contentType ct
+                              :*> closeHeaders
+                              :*> respond rendered
+                            Default (Tuple ct rendered) -> do
+                              writeStatus statusOK
+                              :*> contentType ct
+                              :*> closeHeaders
+                              :*> respond rendered
+                            NotAcceptable _ -> do
+                              writeStatus statusNotAcceptable
+                              :*> contentType textPlain
+                              :*> closeHeaders
+                              :*> end
+    routeEndpoint proxy context handler (SProxy :: SProxy method)
+    where bind = ibind
+
+instance routerOnlyMethod :: ( Monad m
+                             , Request req m
+                             , Response res m r
+                             , ResponseWritable r m b
+                             , IsSymbol method
+                             , AllMimeRender body ct b
+                             , RowCons method (ExceptT RoutingError m body) () hs
+                             )
+                         => Router
+                            (Trout.Method method body ct)
+                            (Record hs)
+                            (Middleware
+                            m
+                            { request :: req, response :: (res StatusLineOpen), components :: c}
+                            { request :: req, response :: (res ResponseEnded), components :: c}
+                            Unit)
+  where
+  route proxy context handlers = do
+    let handler = lift' (runExceptT (Record.get (SProxy :: SProxy method) handlers)) `ibind`
                   case _ of
                     Left (HTTPError { status }) -> do
                       writeStatus status
