@@ -49,21 +49,23 @@
 <ul>
 <li><a href="#purpose">Purpose</a></li>
 <li><a href="#a-single-resource-example">A Single-Resource Example</a></li>
-<li><a href="#routing-multiple-resources">Routing Multiple Resources</a></li>
+<li><a href="#routing-multiple-resources">Routing Multiple Resources</a><ul>
+<li><a href="#example">Example</a></li>
+</ul></li>
 <li><a href="#multi-method-resources">Multi-Method Resources</a></li>
 <li><a href="#content-negotiation">Content Negotiation</a></li>
 </ul>
 </nav>
 <h2 id="purpose">Purpose</h2>
-<p>The purpose of this package, <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>, is writing web servers using the <em>type-level routing API</em> in <a href="https://github.com/owickstrom/purescript-trout">Trout</a>. It provides a router middleware which, together with handler functions and rendering functions, gives us a full-fledged server.</p>
+<p>The purpose of this package, <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>, is writing web servers using the <em>type-level routing API</em> in <a href="https://github.com/owickstrom/purescript-trout">Trout</a>. It provides a router middleware which, together with records of handler functions for resources, and rendering instances, gives us a full-fledged server.</p>
 <h2 id="a-single-resource-example">A Single-Resource Example</h2>
 <p>Let’s say we want to render a home page as HTML. We start out by declaring the data type <code>Home</code>, and the structure of our site:</p>
 <div class="sourceCode" language="purescript"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
 
 <span class="kw">type</span> <span class="dt">Site1</span> <span class="fu">=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Home</span> <span class="dt">HTML</span>)</code></pre></div>
-<p><code>Resource (Get Home HTML)</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em> inside a resource record. A handler for <code>Site1</code> would be some value of the following type:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span></code></pre></div>
-<p>The resource record has fields for each supported HTTP method, with values being the corresponding handlers. A resource record type, supporting HTTP GET and POST, could have the following type:</p>
+<p><code>Resource (Get Home HTML)</code> is a routing type with only one resource, responding to HTTP GET requests, rendering a <code>Home</code> value as HTML. So where does the <code>Home</code> value come from? We provide it using a <em>handler</em> inside a resource record. A resource record for <code>Site1</code> would be some value of the following type:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> {<span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span>}</code></pre></div>
+<p>The resource record has fields for each supported HTTP method, with values being the corresponding handlers. A resource record type, supporting both GET and POST, could have the following type:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> { <span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">SomeType</span>
                      , <span class="st">&quot;POST&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">SomeType</span>
                      }</code></pre></div>
@@ -95,7 +97,27 @@ site1 <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
 main <span class="fu">=</span>
   runServer defaultOptions {} siteRouter</code></pre></div>
 <h2 id="routing-multiple-resources">Routing Multiple Resources</h2>
-<p>Real-world servers often need more than one resource. Let’s define a router for an application that shows a home page with links, a page listing users, and a page rendering a specific user.</p>
+<p>Real-world servers often need more than one resource. To combine multiple resources, resource routing types are separated using the <code>:&lt;|&gt;</code> operator, the type-level operator for separating <em>alternatives</em>.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">RoutingType1</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">RoutingType2</span> <span class="fu">:&lt;|&gt;</span> <span class="fu">...</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">RoutingTypeN</span></code></pre></div>
+<p>When combining multiple resources in a routing type, each resource has to be named. The <code>:=</code> type-level operator names a resource, or another nested structure of resources, using a Symbol on the left-hand side, and a routing type on the right-hand side.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="st">&quot;&lt;resource-name&gt;&quot;</span> <span class="fu">:=</span> <span class="dt">RoutingType</span></code></pre></div>
+<p>The following is a routing type for two resources, named <code>&quot;foo&quot;</code> and <code>&quot;bar&quot;</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">     <span class="st">&quot;foo&quot;</span> <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Foo</span> <span class="dt">HTML</span>)
+<span class="fu">:&lt;|&gt;</span> <span class="st">&quot;bar&quot;</span> <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Bar</span> <span class="dt">HTML</span>)</code></pre></div>
+<p>Named routes can be nested to create a structure of arbitrary depth, a practice useful for grouping related resources:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">UserResources</span> <span class="fu">=</span>
+       <span class="st">&quot;profile&quot;</span>  <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">UserProfile</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;settings&quot;</span> <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">UserSettings</span> <span class="dt">HTML</span>)
+
+<span class="kw">type</span> <span class="dt">AdminResources</span> <span class="fu">=</span>
+       <span class="st">&quot;users&quot;</span> <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Users</span> <span class="dt">HTML</span>)
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;logs&quot;</span>  <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">Logs</span> <span class="dt">HTML</span>)
+
+<span class="kw">type</span> <span class="dt">MyNestedResources</span> <span class="fu">=</span>
+       <span class="st">&quot;user&quot;</span>  <span class="fu">:=</span> <span class="dt">UserResources</span>
+  <span class="fu">:&lt;|&gt;</span> <span class="st">&quot;admin&quot;</span> <span class="fu">:=</span> <span class="dt">AdminResources</span></code></pre></div>
+<h3 id="example">Example</h3>
+<p>Let’s define a router for an application that shows a home page with links, a page listing users, and a page rendering a specific user.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Home</span> <span class="fu">=</span> <span class="dt">Home</span>
 
 <span class="kw">data</span> <span class="dt">AllUsers</span> <span class="fu">=</span> <span class="dt">AllUsers</span> (<span class="dt">Array</span> <span class="dt">User</span>)
@@ -110,13 +132,14 @@ main <span class="fu">=</span>
 
 <span class="ot">site2 ::</span> <span class="dt">Proxy</span> <span class="dt">Site2</span>
 site2 <span class="fu">=</span> <span class="dt">Proxy</span></code></pre></div>
-<p>Let’s go through the new constructs used:</p>
+<p>There are some new things in this code that we haven’t talked about, and some we touched upon a bit. Here’s a walk-through of what’s going on:</p>
 <ul>
-<li><code>:&lt;|&gt;</code> is a type operator that separates <em>alternatives</em>. A router for this type will try each route in order until one matches.</li>
-<li><code>:=</code> names a route, where the left-hand argument is a Symbol, the name, and the right-hand argument is a routing type. Named routes are combined with <code>:&lt;|&gt;</code>, as explained in the previous point. Named routes can be nested to create a structure of arbitrary depth, a practice useful for grouping related resources.</li>
-<li><code>:/</code> separates a literal path segment and the rest of the routing type.</li>
+<li><code>:&lt;|&gt;</code> is the type-level operator that, in general, separates alternatives. In case of resources, a router will try each route in order until one matches.</li>
+<li><code>:=</code> names a route, where the left-hand argument is a Symbol, the name, and the right-hand argument is a routing type. Named routes are combined with <code>:&lt;|&gt;</code>, as explained previously.</li>
+<li><p><code>:/</code> separates a literal path segment and the rest of the routing type. Note that a named routing type, created with <code>:=</code>, has no relation to literal path segments. In other words, if want a resource named <code>&quot;foo&quot;</code> to be served under the path <code>/foo</code>, we write:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="st">&quot;foo&quot;</span> <span class="fu">:=</span> <span class="st">&quot;foo&quot;</span> <span class="fu">:/</span> <span class="fu">...</span></code></pre></div></li>
 <li><code>Capture</code> takes a descriptive string and a type. It takes the next available path segment and tries to convert it to the given type. Each capture in a routing type corresponds to an argument in the handler function.</li>
-<li><code>:&gt;</code> separates a routing type modifier, like <code>Capture</code>, and the rest of the routing type.</li>
+<li><p><code>:&gt;</code> separates a routing type modifier, like <code>Capture</code>, and the rest of the routing type.</p></li>
 </ul>
 <p>We define a resource record using regular functions on the specified data types, returning <code>ExceptT RoutingError m a</code> values, where <code>m</code> is the monad of our middleware, and <code>a</code> is the type to render for the resource and method.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">homeResource ::</span> forall m<span class="fu">.</span> <span class="dt">Monad</span> m <span class="ot">=&gt;</span> {<span class="st">&quot;GET&quot;</span><span class="ot"> ::</span> <span class="dt">ExceptT</span> <span class="dt">RoutingError</span> m <span class="dt">Home</span>}
@@ -191,7 +214,7 @@ main <span class="fu">=</span>
 <p>So far we have just used a single method per resource, the <code>Get</code> method. By replacing the single method type with a sequence of alternatives, constructed with the type-level operator <code>:&lt;|&gt;</code>, we get a resource with multiple methods.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">MultiMethodExample</span> <span class="fu">=</span>
   <span class="st">&quot;user&quot;</span> <span class="fu">:=</span> <span class="dt">Resource</span> (<span class="dt">Get</span> <span class="dt">User</span> <span class="dt">HTML</span> <span class="fu">:&lt;|&gt;</span> <span class="dt">Delete</span> <span class="dt">User</span> <span class="dt">HTML</span>)</code></pre></div>
-<p><code>MultiMethodExample</code> is a routing type with a <em>single resource</em>, named <code>user</code>, which has <em>multiple resource methods</em>. Handlers for the resource methods are provided as a record value, with field names matching the HTTP methods:</p>
+<p><code>MultiMethodExample</code> is a routing type with a <em>single resource</em>, named <code>&quot;user&quot;</code>, which has <em>multiple resource methods</em>. Handlers for the resource methods are provided as a record value, with field names matching the HTTP methods:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">      resources <span class="fu">=</span>
         { user<span class="fu">:</span> { <span class="st">&quot;GET&quot;</span><span class="fu">:</span> getUser
                 , <span class="st">&quot;DELETE&quot;</span><span class="fu">:</span> deleteUser
@@ -230,7 +253,7 @@ main <span class="fu">=</span>
 <footer>
   <a href="https://github.com/owickstrom/purescript-hypertrout">Hypertrout</a>
   &mdash;
-  ad87a05
+  0677466
   &mdash;
   &copy; Copyright 2016-2017 Oskar Wickström
   &mdash;

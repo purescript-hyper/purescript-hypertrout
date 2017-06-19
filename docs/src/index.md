@@ -5,12 +5,14 @@ author: Oskar Wickström
 
 ## Purpose
 
-The purpose of this package,
-[Hypertrout](https://github.com/owickstrom/purescript-hypertrout),
-is writing web servers using the *type-level routing API* in
-[Trout](https://github.com/owickstrom/purescript-trout).
-It provides a router middleware which, together with handler functions
-and rendering functions, gives us a full-fledged server.
+The purpose of this
+package,
+[Hypertrout](https://github.com/owickstrom/purescript-hypertrout), is
+writing web servers using the *type-level routing API*
+in [Trout](https://github.com/owickstrom/purescript-trout).  It
+provides a router middleware which, together with records of handler
+functions for resources, and rendering instances, gives us a
+full-fledged server.
 
 ## A Single-Resource Example
 
@@ -22,16 +24,16 @@ declaring the data type `Home`, and the structure of our site:
 
 `Resource (Get Home HTML)` is a routing type with only one resource,
 responding to HTTP GET requests, rendering a `Home` value as HTML. So
-where does the `Home` value come from? We provide it using a *handler* inside
-a resource record. A handler for `Site1` would be some value of the following
-type:
+where does the `Home` value come from? We provide it using a *handler*
+inside a resource record. A resource record for `Site1` would be some
+value of the following type:
 
 ``` {.haskell}
-forall m. Monad m => ExceptT RoutingError m Home
+forall m. Monad m => {"GET" :: ExceptT RoutingError m Home}
 ```
 
 The resource record has fields for each supported HTTP method, with values
-being the corresponding handlers. A resource record type, supporting HTTP GET
+being the corresponding handlers. A resource record type, supporting both GET
 and POST, could have the following type:
 
 ``` {.haskell}
@@ -87,24 +89,74 @@ to a server.
 
 ## Routing Multiple Resources
 
-Real-world servers often need more than one resource. Let's define a
-router for an application that shows a home page with links, a page
-listing users, and a page rendering a specific user.
+Real-world servers often need more than one resource. To combine
+multiple resources, resource routing types are separated using the
+`:<|>` operator, the type-level operator for separating
+*alternatives*.
+
+``` {.haskell}
+RoutingType1 :<|> RoutingType2 :<|> ... :<|> RoutingTypeN
+```
+
+When combining multiple resources in a routing type, each resource has
+to be named. The `:=` type-level operator names a resource, or another
+nested structure of resources, using a Symbol on the left-hand side,
+and a routing type on the right-hand side.
+
+``` {.haskell}
+"<resource-name>" := RoutingType
+```
+
+The following is a routing type for two resources, named `"foo"` and
+`"bar"`:
+
+``` {.haskell}
+     "foo" := Resource (Get Foo HTML)
+:<|> "bar" := Resource (Get Bar HTML)
+```
+
+Named routes can be nested to create a structure of arbitrary depth, a
+practice useful for grouping related resources:
+
+``` {.haskell}
+type UserResources =
+       "profile"  := Resource (Get UserProfile HTML)
+  :<|> "settings" := Resource (Get UserSettings HTML)
+
+type AdminResources =
+       "users" := Resource (Get Users HTML)
+  :<|> "logs"  := Resource (Get Logs HTML)
+
+type MyNestedResources =
+       "user"  := UserResources
+  :<|> "admin" := AdminResources
+```
+
+### Example
+
+Let's define a router for an application that shows a home page with
+links, a page listing users, and a page rendering a specific user.
 
 ``` {.haskell include=docs/src/Site2.purs snippet=resources-and-type}
 ```
 
-Let's go through the new constructs used:
+There are some new things in this code that we haven't talked about,
+and some we touched upon a bit. Here's a walk-through of what's going
+on:
 
--   `:<|>` is a type operator that separates *alternatives*. A router
-    for this type will try each route in order until one matches.
--   `:=` names a route, where the left-hand argument is a Symbol, the name,
-    and the right-hand argument is a routing type. Named routes are combined
-    with `:<|>`, as explained in the previous point. Named routes can be
-    nested to create a structure of arbitrary depth, a practice useful for
-    grouping related resources.
+-   `:<|>` is the type-level operator that, in general, separates
+    alternatives. In case of resources, a router will try each route
+    in order until one matches.
+-   `:=` names a route, where the left-hand argument is a Symbol, the
+    name, and the right-hand argument is a routing type. Named routes
+    are combined with `:<|>`, as explained previously.
 -   `:/` separates a literal path segment and the rest of the routing
-    type.
+    type. Note that a named routing type, created with `:=`, has no relation
+    to literal path segments. In other words, if want a resource named
+    `"foo"` to be served under the path `/foo`, we write:
+    ``` {.haskell}
+    "foo" := "foo" :/ ...
+    ```
 -   `Capture` takes a descriptive string and a type. It takes the next
     available path segment and tries to convert it to the given type.
     Each capture in a routing type corresponds to an argument in the
@@ -156,9 +208,10 @@ multiple methods.
 ``` {.haskell include=docs/src/MultiMethodExample.purs snippet=routing-type}
 ```
 
-`MultiMethodExample` is a routing type with a *single resource*, named `user`,
-which has *multiple resource methods*. Handlers for the resource methods are
-provided as a record value, with field names matching the HTTP methods:
+`MultiMethodExample` is a routing type with a *single resource*, named
+`"user"`, which has *multiple resource methods*. Handlers for the
+resource methods are provided as a record value, with field names
+matching the HTTP methods:
 
 ``` {.haskell include=docs/src/MultiMethodExample.purs snippet=resources}
 ```
