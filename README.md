@@ -27,6 +27,14 @@ There are also [runnable examples in this repository](examples/).
 
 This library's API documentation is published [on Pursuit](https://pursuit.purescript.org/packages/purescript-hypertrout).
 
+## Changelog
+
+* **0.9.0**
+  - Add QueryParam and QueryParams
+  - Upgrade to Hyper 0.8.0
+  - Use Trout 0.10.0 and the named routing types (backwards-incompatible
+    change!)
+
 ## License
 
 [Mozilla Public License Version 2.0](LICENSE)
