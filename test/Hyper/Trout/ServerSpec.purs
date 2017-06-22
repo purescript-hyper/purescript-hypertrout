@@ -1,4 +1,4 @@
-module Hyper.Trout.RouterSpec (spec) where
+module Hyper.Trout.ServerSpec (spec) where
 
 import Prelude
 import Data.StrMap as StrMap
@@ -17,7 +17,7 @@ import Hyper.Response (class Response, contentType, headers, respond, class Resp
 import Hyper.Status (statusBadRequest, statusMethodNotAllowed, statusOK)
 import Hyper.Test.TestServer (TestResponse(..), TestRequest(..), defaultRequest, testHeaders, testServer, testStatus, testStringBody)
 import Hyper.Trout.TestSite (Home(..), User(..), UserID(..), WikiPage(..), testSite)
-import Hyper.Trout.Router (router)
+import Hyper.Trout.Server (router)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
