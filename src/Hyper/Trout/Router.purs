@@ -1,6 +1,6 @@
 module Hyper.Trout.Router
        ( RoutingError(..)
-       , class Router
+       , class HasRouter
        , route
        , router
        ) where
@@ -59,7 +59,7 @@ instance eqRoutingError :: Eq RoutingError where
 instance showRoutingError :: Show RoutingError where
   show = genericShow
 
-class Router e h r | e -> h, e -> r where
+class HasRouter e h r | e -> h, e -> r where
   route :: Proxy e -> RoutingContext -> h -> Handler r
 
 orHandler :: forall r. Handler r -> Handler r -> Handler r
@@ -80,12 +80,13 @@ orHandler h1 h2 =
           | s1 /= statusNotFound && s2 `elem` fallbackStatuses -> HTTPError errL
           | otherwise -> HTTPError errR
 
-instance routerAltNamed :: ( Router t1 h1 out
-                           , Router t2 (Record h2) out
-                           , IsSymbol name
-                           , RowCons name h1 h2 hs
-                           )
-                           => Router (name := t1 :<|> t2) (Record hs) out where
+instance hasRouterAltNamed
+  :: ( HasRouter t1 h1 out
+     , HasRouter t2 (Record h2) out
+     , IsSymbol name
+     , RowCons name h1 h2 hs
+     )
+     => HasRouter (name := t1 :<|> t2) (Record hs) out where
   route _ context handlers =
     route (Proxy :: Proxy t1) context (Record.get name handlers)
     `orHandler`
@@ -93,18 +94,20 @@ instance routerAltNamed :: ( Router t1 h1 out
     where
       name = SProxy :: SProxy name
 
-instance routerNamed :: ( Router t h out
-                        , IsSymbol name
-                        , RowCons name h () hs
-                        )
-                        => Router (name := t) (Record hs) out where
+instance hasRouterNamed
+  :: ( HasRouter t h out
+     , IsSymbol name
+     , RowCons name h () hs
+     )
+     => HasRouter (name := t) (Record hs) out where
   route _ context handlers =
     route (Proxy :: Proxy t) context (Record.get (SProxy :: SProxy name) handlers)
 
-instance routerLit :: ( Router e h out
-                      , IsSymbol lit
-                      )
-                      => Router (Lit lit :> e) h out where
+instance hasRouterLit
+  :: ( HasRouter e h out
+     , IsSymbol lit
+     )
+     => HasRouter (Lit lit :> e) h out where
   route _ ctx r =
     case uncons ctx.path of
       Just { head, tail } | head == expectedSegment ->
@@ -117,10 +120,11 @@ instance routerLit :: ( Router e h out
                                        })
     where expectedSegment = reflectSymbol (SProxy :: SProxy lit)
 
-instance routerCapture :: ( Router e h out
-                          , FromPathPiece v
-                          )
-                          => Router (Capture c v :> e) (v -> h) out where
+instance hasRouterCapture
+  :: ( HasRouter e h out
+     , FromPathPiece v
+     )
+     => HasRouter (Capture c v :> e) (v -> h) out where
   route _ ctx r =
     case uncons ctx.path of
       Nothing -> throwError (HTTPError { status: statusNotFound
@@ -134,10 +138,11 @@ instance routerCapture :: ( Router e h out
           Right x -> route (Proxy :: Proxy e) ctx { path = tail } (r x)
 
 
-instance routerCaptureAll :: ( Router e h out
-                             , FromPathPiece v
-                             )
-                             => Router (CaptureAll c v :> e) (Array v -> h) out where
+instance hasRouterCaptureAll
+  :: ( HasRouter e h out
+     , FromPathPiece v
+     )
+     => HasRouter (CaptureAll c v :> e) (Array v -> h) out where
   route _ ctx r =
     case traverse fromPathPiece ctx.path of
       Left err -> throwError (HTTPError { status: statusBadRequest
@@ -146,11 +151,12 @@ instance routerCaptureAll :: ( Router e h out
       Right xs -> route (Proxy :: Proxy e) ctx { path = [] } (r xs)
 
 
-instance routerQueryParam :: ( IsSymbol k
-                             , Router e h out
-                             , FromPathPiece t
-                             )
-                          => Router (QueryParam k t :> e) (Maybe t -> h) out where
+instance hasRouterQueryParam
+  :: ( IsSymbol k
+     , HasRouter e h out
+     , FromPathPiece t
+     )
+     => HasRouter (QueryParam k t :> e) (Maybe t -> h) out where
   route _ ctx r =
     let k = reflectSymbol (SProxy :: SProxy k)
         v = map (fromMaybe "") $ lookup k $ ctx.query in
@@ -162,12 +168,12 @@ instance routerQueryParam :: ( IsSymbol k
                                                })
     where go = route (Proxy :: Proxy e) ctx <<< r
 
-
-instance routerQueryParams :: ( IsSymbol k
-                              , Router e h out
-                              , FromPathPiece t
-                              )
-                           => Router (QueryParams k t :> e) (Array t -> h) out where
+instance hasRouterQueryParams
+  :: ( IsSymbol k
+     , HasRouter e h out
+     , FromPathPiece t
+     )
+     => HasRouter (QueryParams k t :> e) (Array t -> h) out where
   route _ ctx r =
     let k = reflectSymbol (SProxy :: SProxy k)
         v = map (fromMaybe "" <<< snd) $ filter ((==) k <<< fst) $ ctx.query in
@@ -178,14 +184,14 @@ instance routerQueryParams :: ( IsSymbol k
                                         })
     where go = route (Proxy :: Proxy e) ctx <<< r
 
-
-routeEndpoint :: forall e r method
-                  . IsSymbol method
-                 => Proxy e
-                 -> RoutingContext
-                 -> r
-                 -> SProxy method
-                 -> Either RoutingError r
+routeEndpoint
+  :: forall e r method
+   . IsSymbol method
+  => Proxy e
+  -> RoutingContext
+  -> r
+  -> SProxy method
+  -> Either RoutingError r
 routeEndpoint _ context r methodProxy = do
   unless (null context.path) $
     throwError (HTTPError { status: statusNotFound
@@ -209,36 +215,38 @@ getAccept m =
     Just a -> Just <$> parseAcceptHeader a
     Nothing -> pure Nothing
 
-instance routerAltMethod :: ( IsSymbol method
-                            , Router (Trout.Method method body ct) (Record hs) out
-                            , Router methods (Record hs) out
-                            )
-                        => Router
-                           (Trout.Method method body ct :<|> methods)
-                           (Record hs)
-                           out
+instance hasRouterAltMethod
+  :: ( IsSymbol method
+     , HasRouter (Trout.Method method body ct) (Record hs) out
+     , HasRouter methods (Record hs) out
+     )
+     => HasRouter
+        (Trout.Method method body ct :<|> methods)
+        (Record hs)
+        out
   where
   route _ context handlers =
     route (Proxy :: Proxy (Trout.Method method body ct)) context handlers
     `orHandler`
     route (Proxy :: Proxy methods) context handlers
 
-instance routerMethod :: ( Monad m
-                         , Request req m
-                         , Response res m r
-                         , ResponseWritable r m b
-                         , IsSymbol method
-                         , AllMimeRender body ct b
-                         , RowCons method (ExceptT RoutingError m body) hs' hs
-                         )
-                     => Router
-                        (Trout.Method method body ct)
-                        (Record hs)
-                        (Middleware
-                        m
-                        { request :: req, response :: (res StatusLineOpen), components :: c}
-                        { request :: req, response :: (res ResponseEnded), components :: c}
-                        Unit)
+instance hasRouterMethod
+  :: ( Monad m
+     , Request req m
+     , Response res m r
+     , ResponseWritable r m b
+     , IsSymbol method
+     , AllMimeRender body ct b
+     , RowCons method (ExceptT RoutingError m body) hs' hs
+     )
+     => HasRouter
+        (Trout.Method method body ct)
+        (Record hs)
+        (Middleware
+        m
+        { request :: req, response :: (res StatusLineOpen), components :: c}
+        { request :: req, response :: (res ResponseEnded), components :: c}
+        Unit)
   where
   route proxy context handlers = do
     let handler = lift' (runExceptT (Record.get (SProxy :: SProxy method) handlers)) `ibind`
@@ -276,47 +284,47 @@ instance routerMethod :: ( Monad m
     routeEndpoint proxy context handler (SProxy :: SProxy method)
     where bind = ibind
 
-instance routerRaw :: IsSymbol method
-                   => Router
-                      (Raw method)
-                      (Middleware
-                       m
-                       { request :: req
-                       , response :: (res StatusLineOpen)
-                       , components :: c
-                       }
-                       { request :: req
-                       , response :: (res ResponseEnded)
-                       , components :: c
-                       }
-                       Unit)
-                      (Middleware
-                       m
-                       { request :: req
-                       , response :: (res StatusLineOpen)
-                       , components :: c
-                       }
-                       { request :: req
-                       , response :: (res ResponseEnded)
-                       , components :: c
-                       }
-                       Unit)
-                      where
+instance hasRouterRaw
+  :: IsSymbol method
+     => HasRouter
+        (Raw method)
+        (Middleware
+        m
+        { request :: req
+        , response :: (res StatusLineOpen)
+        , components :: c
+        }
+        { request :: req
+        , response :: (res ResponseEnded)
+        , components :: c
+        }
+        Unit)
+        (Middleware
+        m
+        { request :: req
+        , response :: (res StatusLineOpen)
+        , components :: c
+        }
+        { request :: req
+        , response :: (res ResponseEnded)
+        , components :: c
+        }
+        Unit) where
   route proxy context r =
     routeEndpoint proxy context r (SProxy :: SProxy method)
 
 
-instance routerResource :: ( Router methods h out
-                           )
-                        => Router (Trout.Resource methods) h out where
+instance hasRouterResource
+  :: ( HasRouter methods h out
+     )
+     => HasRouter (Trout.Resource methods) h out where
   route proxy = route (Proxy :: Proxy methods)
-
 
 router
   :: forall s r m req res c
    . Monad m
   => Request req m
-  => Router s r (Middleware
+  => HasRouter s r (Middleware
                  m
                  (Conn req (res StatusLineOpen) c)
                  (Conn req (res ResponseEnded) c)
@@ -335,12 +343,8 @@ router
      (Conn req (res StatusLineOpen) c)
      (Conn req (res ResponseEnded) c)
      Unit
-router site handler onRoutingError = do
+router site handler onRoutingError =
   handler'
-  -- Run the routing to get a handler.
-  -- route (Proxy :: Proxy s) ctx handler
-  -- Then, if successful, run the handler, possibly also generating an HTTPError.
-  -- # either catch runHandler
   where
     context { parsedUrl, method } =
       let parsedUrl' = force parsedUrl in
