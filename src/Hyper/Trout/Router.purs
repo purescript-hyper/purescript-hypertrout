@@ -1,3 +1,5 @@
 module Hyper.Trout.Router where
 
-import Prelude
+data Router a
+  = Leaf a
+  | Capture
