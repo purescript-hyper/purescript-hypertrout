@@ -12,15 +12,21 @@
     "output"
   ],
   "dependencies": {
-    "purescript-prelude": "^3.0.0",
-    "purescript-console": "^3.0.0",
-    "purescript-hyper": "^0.8.0",
-    "purescript-trout": "^0.10.0"
+    "purescript-prelude": "^4.1.0",
+    "purescript-console": "^4.2.0",
+    "purescript-hyper": "https://github.com/nicholassaunders/hyper.git#feature/dep-upgrade",
+    "purescript-trout": "https://github.com/nicholassaunders/purescript-trout.git#compiler/0.12"
   },
   "devDependencies": {
-    "purescript-psci-support": "^3.0.0",
-    "purescript-spec": "^0.13.0",
-    "purescript-spec-discovery": "^0.5.0",
+    "purescript-psci-support": "^4.0.0",
+    "purescript-spec": "^3.1.0",
+    "purescript-spec-discovery": "^3.1.0",
     "purescript-argonaut-generic": "*"
+  },
+  "resolutions": {
+    "purescript-argonaut": "^5.0.0",
+    "purescript-argonaut-codecs": "^5.1.1",
+    "purescript-argonaut-traversals": "^6.0.0",
+    "purescript-profunctor-lenses": "^5.0.0"
   }
 }

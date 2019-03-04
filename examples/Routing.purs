@@ -1,26 +1,22 @@
 module Examples.Routing where
 
 import Prelude
-import Control.IxMonad ((:*>))
-import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.AVar (AVAR)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (EXCEPTION)
+import Control.Monad.Indexed ((:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT)
 import Data.Argonaut (class EncodeJson, jsonEmptyObject, (:=), (~>))
-import Data.Argonaut.Encode.Generic (gEncodeJson)
+import Data.Argonaut.Encode.Generic.Rep (genericEncodeJson)
 import Data.Array (find, (..))
 import Data.Foldable (traverse_)
-import Data.Generic (class Generic)
+import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textHTML)
+import Effect (Effect)
+import Effect.Aff (Aff)
 import Hyper.Node.Server (defaultOptions, runServer)
 import Hyper.Response (closeHeaders, contentType, respond, writeStatus)
 import Hyper.Status (statusNotFound)
 import Hyper.Trout.Router (RoutingError(..), router)
-import Node.HTTP (HTTP)
 import Text.Smolder.HTML (h1, li, nav, p, section, ul)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
@@ -36,7 +32,7 @@ newtype Post = Post { id :: PostID
                     , title :: String
                     }
 
-derive instance genericPost :: Generic Post
+derive instance genericPost :: Generic Post _
 
 instance encodeJsonPost :: EncodeJson Post where
   encodeJson (Post { id, title }) =
@@ -54,10 +50,10 @@ instance encodeHTMLPost :: EncodeHTML Post where
 
 newtype PostsView = PostsView (Array Post)
 
-derive instance genericPostsView :: Generic PostsView
+derive instance genericPostsView :: Generic PostsView _
 
 instance encodeJsonPostsView :: EncodeJson PostsView where
-  encodeJson = gEncodeJson
+  encodeJson = genericEncodeJson
 
 instance encodeHTMLPostsView :: EncodeHTML PostsView where
   encodeHTML (PostsView posts) =
@@ -75,17 +71,17 @@ type Site =
 site :: Proxy Site
 site = Proxy
 
-type AppM e a = ExceptT RoutingError (Aff e) a
+type AppM a = ExceptT RoutingError Aff a
 
 -- This would likely be a database query in
 -- a real app:
-allPosts :: forall e. AppM e (Array Post)
+allPosts :: AppM (Array Post)
 allPosts = pure (map (\i -> Post { id: i, title: "Post #" <> show i }) (1..10))
 
-postsResource :: forall e. { "GET" :: AppM e PostsView }
+postsResource :: { "GET" :: AppM PostsView }
 postsResource = { "GET": PostsView <$> allPosts }
 
-postResource :: forall e. PostID -> { "GET" :: AppM e Post }
+postResource :: PostID -> { "GET" :: AppM Post }
 postResource postId =
   { "GET":
     find (\(Post p) -> p.id == postId) <$> allPosts >>=
@@ -97,7 +93,7 @@ postResource postId =
                                         })
   }
 
-main :: forall e. Eff (http :: HTTP, console :: CONSOLE, err :: EXCEPTION, avar :: AVAR | e) Unit
+main :: Effect Unit
 main =
   runServer defaultOptions {} siteRouter
   where
@@ -111,4 +107,4 @@ main =
       writeStatus status
       :*> contentType textHTML
       :*> closeHeaders
-      :*> respond (maybe "" id msg)
+      :*> respond (maybe "" identity msg)

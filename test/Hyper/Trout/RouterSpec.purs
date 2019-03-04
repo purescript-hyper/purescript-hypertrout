@@ -1,15 +1,15 @@
 module Hyper.Trout.RouterSpec (spec) where
 
 import Prelude
-import Data.StrMap as StrMap
-import Control.IxMonad ((:*>))
+import Control.Monad.Indexed ((:*>))
 import Data.Either (Either(..))
 import Data.HTTP.Method (Method(POST, GET))
 import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textPlain)
-import Data.StrMap (StrMap)
 import Data.String (joinWith)
 import Data.Tuple (Tuple(..))
+import Foreign.Object (Object)
+import Foreign.Object as F
 import Hyper.Conn (Conn)
 import Hyper.Middleware (Middleware, evalMiddleware)
 import Hyper.Request (class Request)
@@ -66,7 +66,7 @@ searchResource :: forall f m. Functor f => Monad m => f String -> {"GET" :: m (f
 searchResource q =
   {"GET": pure $ User <<< UserID <$> q}
 
-spec :: forall e. Spec e Unit
+spec :: Spec Unit
 spec =
   describe "Hyper.Routing.Router" do
     let userResources userId = { profile: profileResource userId
@@ -83,7 +83,7 @@ spec =
         onRoutingError status msg = do
           writeStatus status
           :*> headers []
-          :*> respond (maybe "" id msg)
+          :*> respond (maybe "" identity msg)
 
         makeRequestWithHeaders method path headers =
           { request: TestRequest defaultRequest { method = Left method
@@ -97,7 +97,7 @@ spec =
           # testServer
 
         makeRequest method path =
-          makeRequestWithHeaders method path (StrMap.empty :: StrMap String)
+          makeRequestWithHeaders method path (F.empty :: Object String)
 
     describe "router" do
       it "matches root" do
@@ -105,7 +105,7 @@ spec =
         testStringBody conn `shouldEqual` "<h1>Home</h1>"
 
       it "considers Accept header for multi-content-type resources" do
-        conn <- makeRequestWithHeaders GET "/" (StrMap.singleton "accept" "application/json")
+        conn <- makeRequestWithHeaders GET "/" (F.singleton "accept" "application/json")
         testStatus conn `shouldEqual` Just statusOK
         testStringBody conn `shouldEqual` "{}"
 
