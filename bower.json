@@ -22,11 +22,5 @@
     "purescript-spec": "^3.1.0",
     "purescript-spec-discovery": "^3.1.0",
     "purescript-argonaut-generic": "*"
-  },
-  "resolutions": {
-    "purescript-argonaut": "^5.0.0",
-    "purescript-argonaut-codecs": "^5.1.1",
-    "purescript-argonaut-traversals": "^6.0.0",
-    "purescript-profunctor-lenses": "^5.0.0"
   }
 }
