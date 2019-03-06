@@ -1,20 +1,17 @@
 module Site2 where
 
-import Control.IxMonad ((:*>))
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Indexed ((:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT)
 import Data.Array (find)
 import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textHTML)
 import Data.Traversable (traverse_)
+import Effect (Effect)
 import Hyper.Node.Server (defaultOptions, runServer)
 import Hyper.Response (closeHeaders, contentType, respond, writeStatus)
 import Hyper.Status (statusNotFound)
 import Hyper.Trout.Router (RoutingError(..), router)
-import Node.Buffer (BUFFER)
-import Node.HTTP (HTTP)
 import Text.Smolder.HTML (div, h1, li, p, ul)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
@@ -97,7 +94,7 @@ getUsers =
 -- end snippet get-users
 
 -- start snippet main
-main :: forall e. Eff (http :: HTTP, console :: CONSOLE, buffer :: BUFFER | e) Unit
+main :: Effect Unit
 main =
   let resources = { home: homeResource
                   , users: usersResource

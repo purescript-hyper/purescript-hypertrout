@@ -1,18 +1,15 @@
 module MultiMethodExample where
 
-import Control.IxMonad ((:*>))
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Indexed ((:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT)
 import Data.Maybe (Maybe(..), maybe)
 import Data.MediaType.Common (textHTML)
+import Effect (Effect)
 import Hyper.Node.Server (defaultOptions, runServer)
 import Hyper.Response (closeHeaders, contentType, respond, writeStatus)
 import Hyper.Status (statusBadRequest)
 import Hyper.Trout.Router (RoutingError(..), router)
-import Node.Buffer (BUFFER)
-import Node.HTTP (HTTP)
 import Text.Smolder.HTML (h1)
 import Text.Smolder.Markup (text)
 import Type.Proxy (Proxy(..))
@@ -45,7 +42,7 @@ instance encodeHTMLUser :: EncodeHTML User where
   encodeHTML (User { name }) =
     h1 (text $ "User: " <> name)
 
-main :: forall e. Eff (http :: HTTP, console :: CONSOLE, buffer :: BUFFER | e) Unit
+main :: Effect Unit
 main =
   let
       -- start snippet resources
