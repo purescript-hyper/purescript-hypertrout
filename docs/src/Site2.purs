@@ -108,7 +108,7 @@ main =
         writeStatus status
         :*> contentType textHTML
         :*> closeHeaders
-        :*> respond (maybe "" id msg)
+        :*> respond (maybe "" identity msg)
 
   in runServer defaultOptions {} otherSiteRouter
 -- end snippet main

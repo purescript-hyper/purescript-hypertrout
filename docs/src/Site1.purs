@@ -49,7 +49,7 @@ main =
       writeStatus status
       :*> contentType textHTML
       :*> closeHeaders
-      :*> respond (maybe "" id msg)
+      :*> respond (maybe "" identity msg)
 
     siteRouter = router site1 home onRoutingError
     -- end snippet router
