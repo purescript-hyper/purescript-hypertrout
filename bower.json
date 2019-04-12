@@ -15,7 +15,7 @@
     "purescript-prelude": "^4.1.0",
     "purescript-console": "^4.2.0",
     "purescript-hyper": "https://github.com/nicholassaunders/hyper.git#feature/dep-upgrade",
-    "purescript-trout": "https://github.com/nicholassaunders/purescript-trout.git#compiler/0.12"
+    "purescript-trout": "^0.11.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",
