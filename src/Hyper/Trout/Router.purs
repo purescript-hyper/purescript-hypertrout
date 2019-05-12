@@ -7,12 +7,11 @@ module Hyper.Trout.Router
 
 import Prelude
 import Data.HTTP.Method as Method
-import Data.StrMap as StrMap
 import Type.Trout as Trout
 import Type.Trout.Record as Record
-import Control.IxMonad (ibind, (:*>))
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Indexed (ibind, (:*>))
 import Data.Array (elem, filter, null, uncons)
 import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
@@ -22,16 +21,18 @@ import Data.HTTP.Method (CustomMethod, Method)
 import Data.Lazy (force)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.MediaType.Common (textPlain)
-import Data.StrMap (StrMap)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, lookup, snd)
+import Foreign.Object (Object)
+import Foreign.Object (lookup) as F
 import Hyper.Conn (Conn)
 import Hyper.ContentNegotiation (AcceptHeader, NegotiationResult(..), negotiateContent, parseAcceptHeader)
 import Hyper.Middleware (Middleware, lift')
 import Hyper.Request (class Request, getRequestData)
 import Hyper.Response (class Response, class ResponseWritable, ResponseEnded, StatusLineOpen, closeHeaders, contentType, end, respond, writeStatus)
 import Hyper.Status (Status, statusBadRequest, statusMethodNotAllowed, statusNotAcceptable, statusNotFound, statusOK)
+import Prim.Row (class Cons)
 import Type.Proxy (Proxy(..))
 import Type.Trout (type (:<|>), type (:=), type (:>), Capture, CaptureAll, QueryParam, QueryParams, Lit, Raw)
 import Type.Trout.ContentType (class AllMimeRender, allMimeRender)
@@ -83,7 +84,7 @@ orHandler h1 h2 =
 instance routerAltNamed :: ( Router t1 h1 out
                            , Router t2 (Record h2) out
                            , IsSymbol name
-                           , RowCons name h1 h2 hs
+                           , Cons name h1 h2 hs
                            )
                            => Router (name := t1 :<|> t2) (Record hs) out where
   route _ context handlers =
@@ -95,7 +96,7 @@ instance routerAltNamed :: ( Router t1 h1 out
 
 instance routerNamed :: ( Router t h out
                         , IsSymbol name
-                        , RowCons name h () hs
+                        , Cons name h () hs
                         )
                         => Router (name := t) (Record hs) out where
   route _ context handlers =
@@ -203,9 +204,9 @@ routeEndpoint _ context r methodProxy = do
                           })
   pure r
 
-getAccept :: StrMap String -> Either String (Maybe AcceptHeader)
+getAccept :: Object String -> Either String (Maybe AcceptHeader)
 getAccept m =
-  case StrMap.lookup "accept" m of
+  case F.lookup "accept" m of
     Just a -> Just <$> parseAcceptHeader a
     Nothing -> pure Nothing
 
@@ -229,7 +230,7 @@ instance routerMethod :: ( Monad m
                          , ResponseWritable r m b
                          , IsSymbol method
                          , AllMimeRender body ct b
-                         , RowCons method (ExceptT RoutingError m body) hs' hs
+                         , Cons method (ExceptT RoutingError m body) hs' hs
                          )
                      => Router
                         (Trout.Method method body ct)
@@ -345,7 +346,7 @@ router site handler onRoutingError = do
     context { parsedUrl, method } =
       let parsedUrl' = force parsedUrl in
       { path: parsedUrl'.path
-      , query: either (const []) id parsedUrl'.query
+      , query: either (const []) identity parsedUrl'.query
       , method: method
       }
     catch (HTTPError { status, message }) =
