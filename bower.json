@@ -22,5 +22,12 @@
     "purescript-spec": "^3.1.0",
     "purescript-spec-discovery": "^3.1.0",
     "purescript-argonaut-generic": "*"
+  },
+  "resolutions": {
+    "purescript-argonaut-core": "^4.0.1",
+    "purescript-argonaut-codecs": "^5.1.2",
+    "purescript-record": "^1.0.0",
+    "purescript-foreign-object": "^1.0.0",
+    "purescript-typelevel-prelude": "^3.0.0"
   }
 }
