@@ -29,6 +29,10 @@ This library's API documentation is published [on Pursuit](https://pursuit.pures
 
 ## Changelog
 
+* **0.10.0**
+  - Updates for PureScript 0.12
+  - Upgrade to Hyper 0.9.0
+  - Upgrade to Trout 0.11.0
 * **0.9.0**
   - Add QueryParam and QueryParams
   - Upgrade to Hyper 0.8.0
