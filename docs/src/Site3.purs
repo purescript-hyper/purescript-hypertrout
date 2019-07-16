@@ -63,9 +63,9 @@ userResource id' =
    case _ of
        Just user -> pure user
        Nothing ->
-       throwError (HTTPError { status: statusNotFound
-                               , message: Just "User not found."
-                               })
+         throwError (HTTPError { status: statusNotFound
+                                 , message: Just "User not found."
+                                 })
   }
 
 instance encodeHTMLHome :: EncodeHTML Home where

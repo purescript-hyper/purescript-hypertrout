@@ -20,11 +20,8 @@ docs/index.html: docs/src/index.md docs/src/template.html docs/src/*.purs
 
 .PHONY: examples
 examples: bower_components
-	pulp build -I examples
+	spago build -p examples/**/*.purs
 
 .PHONY: docs-examples
 docs-examples: bower_components
-	pulp build -I docs/src
-
-bower_components:
-	bower install
+	spago build -p docs/src/**/*.purs
