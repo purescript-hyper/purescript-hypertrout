@@ -29,6 +29,12 @@ This library's API documentation is published [on Pursuit](https://pursuit.pures
 
 ## Changelog
 
+* **0.11.0**
+  - Updates for PureScript 0.13
+  - Upgrade to Hyper 0.10.0
+  - Upgrade to Trout 0.12.0
+  - Various dependency upgrades
+  - Migration to Spago as primary package manager / build tool
 * **0.10.0**
   - Updates for PureScript 0.12
   - Upgrade to Hyper 0.9.0
