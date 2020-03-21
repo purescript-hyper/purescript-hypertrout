@@ -13,13 +13,13 @@
 <hr>
 
 Hypertrout lets you build [Hyper](https://hyper.wickstrom.tech) web servers on
-top of the [purescript-trout](https://github.com/owickstrom/purescript-trout)
+top of the [purescript-trout](https://github.com/purescript-hyper/purescript-trout)
 API for type-level routing.
 
 ## Usage
 
 For the documentation on how to use this package, please see [the
-tutorials](https://owickstrom.github.io/purescript-hypertrout/).
+tutorials](https://purescript-hyper.github.io/purescript-hypertrout/).
 
 There are also [runnable examples in this repository](examples/).
 
