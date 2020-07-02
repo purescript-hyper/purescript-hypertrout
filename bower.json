@@ -5,26 +5,20 @@
     "type": "git",
     "url": "git://github.com/owickstrom/purescript-hypertrout.git"
   },
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "output"
-  ],
+  "ignore": ["**/.*", "node_modules", "bower_components", "output"],
   "dependencies": {
     "purescript-prelude": "^4.1.1",
-    "purescript-console": "^4.2.0",
-    "purescript-hyper": "^0.10.0",
-    "purescript-trout": "^0.12.0"
+    "purescript-console": "^4.4.0",
+    "purescript-hyper": "^0.11.1",
+    "purescript-trout": "^0.12.3"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",
     "purescript-spec": "^4.0.0",
     "purescript-spec-discovery": "^4.0.0",
-    "purescript-argonaut-generic": "^5.0.0"
+    "purescript-argonaut-generic": "^6.0.0"
   },
   "resolutions": {
-    "purescript-spec": "^4.0.0",
-    "purescript-typelevel-prelude": "^5.0.0"
+    "purescript-spec": "^4.0.0"
   }
 }
