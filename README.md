@@ -29,6 +29,8 @@ This library's API documentation is published [on Pursuit](https://pursuit.pures
 
 ## Changelog
 
+* **0.11.1**
+  - Update dependencies.
 * **0.11.0**
   - Updates for PureScript 0.13
   - Upgrade to Hyper 0.10.0
